@@ -126,6 +126,7 @@
 #include "odometry.h"
 #include "direction.h"
 #include "distance.h"
+#include "motion.h"
 //=====================================================”√ªß≤„=======================================================
 #endif
 

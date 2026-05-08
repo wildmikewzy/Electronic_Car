@@ -51,13 +51,15 @@ void update_position(float current_yaw, float total_dist) {
     // 1. 计算当前时刻的位移增量 dS
     float dS = total_dist - car_pose.last_dist;
     car_pose.last_dist = total_dist;
+    //只有当有事迹位移的时候才计算，减少浮点运算误差
+    if(fabsf(dS) > 0.0001f){
+        // 2. 角度转弧度 (角度 * PI / 180)
+        // 假设 yaw=0 时指向 X 轴正方向，逆时针为正
+        float rad = current_yaw * 3.14159265f / 180.0f;
+        // 3. 累加坐标
+        car_pose.x += dS * cosf(rad);
+        car_pose.y += dS * sinf(rad);
+    }
 
-    // 2. 角度转弧度 (角度 * PI / 180)
-    // 假设 yaw=0 时指向 X 轴正方向，逆时针为正
-    float rad = current_yaw * 3.14159265f / 180.0f;
-
-    // 3. 累加坐标
-    car_pose.x += dS * cosf(rad);
-    car_pose.y += dS * sinf(rad);
 }
 
