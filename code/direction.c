@@ -43,7 +43,7 @@ float direction_PID(float target_yaw, float current_yaw, float gyro_z) {
     // 3. 静态死区补偿优化
     // 只有当偏差足以产生位移趋势时才补偿，防止抖动
     float deadzone_err = 1.0f;
-    float min_start_speed = 0.15f;
+    float min_start_speed = 0.17f;
     if (fabsf(dir_pid.err) > deadzone_err) {
         if (dir_pid.output_f > 0) dir_pid.output_f += (min_start_speed);
         else dir_pid.output_f -= (min_start_speed);

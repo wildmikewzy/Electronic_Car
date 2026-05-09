@@ -126,6 +126,7 @@
 #include "odometry.h"
 #include "direction.h"
 #include "distance.h"
+#include "motion.h"
 #include "uart_image.h"
 #include "gray.h"
 //=====================================================”√ªß≤„=======================================================
