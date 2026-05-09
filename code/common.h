@@ -35,5 +35,19 @@ typedef struct {
 #define KEY_LEFT                (P11_6)
 #define KEY_RIGHT               (P11_2)
 #define KEY_ENTER               (P11_3)
+//树莓派串口通信串口定义
+#define RAS_UART                       (UART_3)
+#define RAS_BAUDRATE                   (115200        )
+#define RAS_RX                         (UART3_TX_P15_6)
+#define RAS_TX                         (UART3_RX_P15_7)
+//灰度传感器引脚定义
+#define GRAY_1  (P00_1)
+#define GRAY_2  (P00_0)
+#define GRAY_3  (P00_3)
+#define GRAY_4  (P00_2)
+#define GRAY_5  (P00_5)
+#define GRAY_6  (P00_4)
+#define GRAY_7  (P00_7)
+#define GRAY_8  (P00_6)
 
 #endif /* CODE_COMMON_H_ */

@@ -60,6 +60,7 @@ int core0_main(void)
 // **************************** 代码区域 ****************************
 void init_all(void){
     gpio_init(P20_9, GPO, GPIO_LOW, GPO_PUSH_PULL);         // 初始化 LED4 输出 默认高电平 推挽输出模式
+    ras_uart_init();
     motor_init();       //无刷电机初始化
     menu_init();    //菜单初始化
     // 初始化IMU
@@ -73,6 +74,7 @@ void init_all(void){
     printf("IMU Initializing Done");
     ips114_clear();
     pit_ms_init(CCU60_CH0,PIT_t);
+    pit_ms_init(CCU60_CH1,10);
     speed_control_init();       //速度环控制初始化
     direction_PID_init();
     distance_PID_init();

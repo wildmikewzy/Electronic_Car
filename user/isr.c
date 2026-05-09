@@ -80,7 +80,7 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
         // 2. 距离环计算 (得出基础速度)
         // 假设我们要让小车精准行驶 3.0 米
         float base_speed = distance_control(2.0f, distance);
-        printf("base_speed %f \r\n:",base_speed);
+//        printf("base_speed %f \r\n:",base_speed);
 //        printf("distance: %f \r\n",distance);
         // 3. 航向环计算 (得出转向差速)
         // 假设我们要让小车始终锁死在 90 度方向
@@ -106,10 +106,20 @@ IFX_INTERRUPT(cc60_pit_ch1_isr, CCU6_0_CH1_INT_VECTAB_NUM, CCU6_0_CH1_ISR_PRIORI
 {
     interrupt_global_enable(0);                     // 开启中断嵌套
     pit_clear_flag(CCU60_CH1);
+    ras_uart_process();
 
 
 
-
+    // 如果有检测目标，读取第0个并打印
+    if (ras_get_detection_count() > 0)
+    {
+        ras_detection_t d;
+        if (ras_get_detection(0, &d))
+        {
+            // 输出格式可按需修改
+            printf("det:%u,%u,%u,%c\r\n", (unsigned)d.x, (unsigned)d.y, (unsigned)d.label_index, d.result_char);
+        }
+    }
 }
 
 IFX_INTERRUPT(cc61_pit_ch0_isr, CCU6_1_CH0_INT_VECTAB_NUM, CCU6_1_CH0_ISR_PRIORITY)
@@ -285,8 +295,8 @@ IFX_INTERRUPT(uart3_tx_isr, UART3_INT_VECTAB_NUM, UART3_TX_INT_PRIO)
 IFX_INTERRUPT(uart3_rx_isr, UART3_INT_VECTAB_NUM, UART3_RX_INT_PRIO)
 {
     interrupt_global_enable(0);                     // 开启中断嵌套
-    gnss_uart_callback();                           // GNSS串口回调函数
-
+    //gnss_uart_callback();                           // GNSS串口回调函数
+    ras_uart_rx_callback();
 
 
 }
