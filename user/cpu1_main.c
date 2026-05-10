@@ -56,7 +56,7 @@ void core1_main(void)
     while (TRUE)
     {
         // 此处编写需要循环执行的代码
-
+        grey_image_show();
 
 
 

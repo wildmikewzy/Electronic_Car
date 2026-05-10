@@ -13,6 +13,7 @@ float cmd_target_yaw = 0.0f;
 float cmd_target_dist = 0.0f;
 float start_dist = 0.0f; // 记录开始直行时的里程计数值
 extern Pose_t car_pose;
+PID_t line_track_pid;
 Point_t path[] = {
     {1.0f, 0.0f}, // 点1
     {1.0f, 1.0f}, // 点2
@@ -61,5 +62,45 @@ void path_following_logic(void) {
         path_index++;
     }
 }
+/**
+ * @brief 灰度循迹PID初始化
+ */
+void gray_track_PID_init(void){
+    line_track_pid.err = 0.0;
+    line_track_pid.last_err = 0.0;
+    line_track_pid.kp = 0.005;
+    line_track_pid.ki = 0.0;
+    line_track_pid.kd = 0.15;
+    line_track_pid.output = 0;
+    line_track_pid.output_f = 0;
+    line_track_pid.prev_err = 0;
+    line_track_pid.target_val = 0;
+}
+/**
+ * @brief 灰度循迹 PID 核心计算
+ * @param pid: 指向你的 line_pid 结构体
+ * @param current_error: 从 gray_get_error() 获取的偏差 (-40 ~ 40)
+ * @return float: 返回转向速度修正值 (m/s)
+ */
+float gray_track_PID_realize(void) {
+    // 1. 更新误差
+    line_track_pid.err = gray_get_error();
 
+    // 2. 比例项 (P)
+    float p_out = line_track_pid.kp * line_track_pid.err;
+
+    // 3. 微分项 (D)
+    // 使用 (当前误差 - 上次误差) 来抑制震荡
+    float d_out = line_track_pid.kd * (line_track_pid.err - line_track_pid.last_err);
+
+    // 5. 计算总输出 (float 类型)
+    line_track_pid.output_f = p_out + d_out;
+
+    // 6. 更新历史误差记录
+    line_track_pid.prev_err = line_track_pid.last_err; // 备份上上次误差 (对应你的结构体成员)
+    line_track_pid.last_err = line_track_pid.err;      // 更新上次误差
+
+    // 7. 返回计算结果
+    return line_track_pid.output_f;
+}
 

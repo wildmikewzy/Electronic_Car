@@ -45,6 +45,7 @@ extern MotionState_t current_state;
 extern float cmd_target_yaw;
 extern float cmd_target_dist;
 extern float start_dist; // 记录开始直行时的里程计数值
+extern PID_t line_track_pid;
 // **************************** PIT中断函数 ****************************
 IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORITY)
 {
@@ -55,7 +56,8 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     //计算速度和里程
     calc_speed();
     calc_distance();
-
+    //灰度传感器更新
+    gray_update();
     //===================速度闭环测试=================================
     static int time = 0;
     time++;
@@ -102,48 +104,66 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
 //        small_driver_set_duty(left_duty, right_duty);
 //    }
       //=========================坐标点闭环=============================
-      if(time % 4 == 0){        //降频，相当于20ms终端
-          float turn_speed = 0;     //转弯速度
-          float base_speed = 0;     //基础直线速度
+//      if(time % 4 == 0){        //降频，相当于20ms终端
+//          float turn_speed = 0;     //转弯速度
+//          float base_speed = 0;     //基础直线速度
+//
+//          switch (current_state) {
+//              case IDLE:
+//                  path_following_logic();
+//                  break;
+//
+//              case ROTATING:
+//                  // 只有航向环在工作
+//                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
+//                  base_speed = 0;
+//
+//                  // 判定旋转是否完成：误差小于 2 度 且 角速度足够小
+//                  if (fabsf(cmd_target_yaw - yaw) < 2.0f && fabsf(gyro_z) < 5.0f) {
+//                      start_dist = distance; // 记录当前里程计作为起点
+//                      current_state = TRANSLATING;
+//                  }
+//                  break;
+//
+//              case TRANSLATING:
+//                  // 航向环锁死角度，距离环开始输出速度
+//                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
+//
+//                  // 相对距离闭环：当前行驶距离 = 总里程 - 记录的起点
+//                  base_speed = distance_control(cmd_target_dist, distance - start_dist);
+//
+//                  // 判定直行是否完成：距离误差小于 3cm
+//                  if (fabsf(cmd_target_dist - (distance - start_dist)) < 0.03f) {
+//                      current_state = IDLE;
+//                  }
+//                  break;
+//          }
+//
+//          // B. 融合并输出
+//          small_driver_set_duty(speed_control_left_duty(base_speed - turn_speed),
+//                               speed_control_right_duty(base_speed + turn_speed));
+//
+//          // C. 实时更新坐标（航位推算）
+//          update_position(yaw, distance);
+//      }
+    //================循迹测试==================================
+    if(time % 4 == 0) {
+        float turn_speed = 0;
+        float base_speed = 0.3f; // 循迹的基础速度
 
-          switch (current_state) {
-              case IDLE:
-                  path_following_logic();
-                  break;
+        //调用 PID 函数得到转向修正量
+        turn_speed = gray_track_PID_realize();
+        printf("turn_speed: %f \r\n",turn_speed);
+        // 差速融合
+        float left_target  = base_speed + turn_speed;
+        float right_target = base_speed - turn_speed;
 
-              case ROTATING:
-                  // 只有航向环在工作
-                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
-                  base_speed = 0;
-
-                  // 判定旋转是否完成：误差小于 2 度 且 角速度足够小
-                  if (fabsf(cmd_target_yaw - yaw) < 2.0f && fabsf(gyro_z) < 5.0f) {
-                      start_dist = distance; // 记录当前里程计作为起点
-                      current_state = TRANSLATING;
-                  }
-                  break;
-
-              case TRANSLATING:
-                  // 航向环锁死角度，距离环开始输出速度
-                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
-
-                  // 相对距离闭环：当前行驶距离 = 总里程 - 记录的起点
-                  base_speed = distance_control(cmd_target_dist, distance - start_dist);
-
-                  // 判定直行是否完成：距离误差小于 3cm
-                  if (fabsf(cmd_target_dist - (distance - start_dist)) < 0.03f) {
-                      current_state = IDLE;
-                  }
-                  break;
-          }
-
-          // B. 融合并输出
-          small_driver_set_duty(speed_control_left_duty(base_speed - turn_speed),
-                               speed_control_right_duty(base_speed + turn_speed));
-
-          // C. 实时更新坐标（航位推算）
-          update_position(yaw, distance);
-      }
+        // 输入到你之前的速度环
+        small_driver_set_duty(speed_control_left_duty(left_target),
+                             speed_control_right_duty(right_target));
+        }
+    // 别忘了更新坐标，即使在循迹，坐标系统也要运行
+    update_position(yaw, distance);
 }
 
 

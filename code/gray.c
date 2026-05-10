@@ -14,16 +14,16 @@ static volatile uint8_t gray_level[GRAY_SENSOR_NUM] = {0};
 static volatile uint8_t gray_active[GRAY_SENSOR_NUM] = {0};
 
 static volatile uint8_t gray_mask = 0;
-static volatile int16_t gray_error = 0;
-static volatile int16_t gray_last_error = 0;
+static volatile float gray_error = 0;
+static volatile float gray_last_error = 0;
 static volatile uint8_t gray_valid_count = 0;
 static volatile bool gray_lost_flag = true;
 
 // 权重：从左到右
 // GRAY_1 最左，GRAY_8 最右
-static const int8_t gray_weight[GRAY_SENSOR_NUM] =
+static const float gray_weight[GRAY_SENSOR_NUM] =
 {
-    -4, -3, -2, -1, 1, 2, 3, 4
+    -40.0f,-20.0f,-10.0f,-5.0f,5.0f,10.0f,20.0f,40.0f
 };
 
 void gray_init(void)
@@ -52,7 +52,7 @@ void gray_init(void)
 
 void gray_update(void)
 {
-    int16_t weighted_sum = 0;
+    float weighted_sum = 0;
     uint8_t active_count = 0;
     uint8_t mask = 0;
 
@@ -88,7 +88,7 @@ void gray_update(void)
     {
         gray_lost_flag = false;
 
-        gray_error = weighted_sum / active_count;
+        gray_error = weighted_sum / (float)active_count;
         gray_last_error = gray_error;
     }
     else
@@ -98,17 +98,17 @@ void gray_update(void)
 #if GRAY_LOST_KEEP_LAST
         gray_error = gray_last_error;
 #else
-        gray_error = 0;
+        gray_error = 0.0f;
 #endif
     }
 }
 
-int16_t gray_get_error(void)
+float gray_get_error(void)
 {
     return gray_error;
 }
 
-int16_t gray_get_last_error(void)
+float gray_get_last_error(void)
 {
     return gray_last_error;
 }

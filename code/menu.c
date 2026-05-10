@@ -38,4 +38,10 @@ void screen_update(void){
     ips114_show_float(5+8*6, 16*7, car_pose.y, 3, 2);
 
 }
+/**
+ * @brief 灰度数值显示
+ */
+void grey_image_show(void){
+    ips114_show_float(5,16*1,gray_get_error(),2,1);
+}
 

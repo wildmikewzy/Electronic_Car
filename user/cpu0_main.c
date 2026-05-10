@@ -51,7 +51,7 @@ int core0_main(void)
     while (TRUE)
     {
         // 此处编写需要循环执行的代码
-        screen_update();
+
         // 此处编写需要循环执行的代码
     }
 }
@@ -63,6 +63,7 @@ void init_all(void){
     ras_uart_init();
     motor_init();       //无刷电机初始化
     menu_init();    //菜单初始化
+    gray_init();        //灰度传感器初始化
     // 初始化IMU
     printf("Initializing IMU...\r\n");
     ips114_show_string(0,0,"loading");
@@ -78,4 +79,5 @@ void init_all(void){
     speed_control_init();       //速度环控制初始化
     direction_PID_init();
     distance_PID_init();
+    gray_track_PID_init();
 }

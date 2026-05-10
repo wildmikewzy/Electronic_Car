@@ -22,8 +22,8 @@
 void gray_init(void);
 void gray_update(void);
 
-int16_t gray_get_error(void);
-int16_t gray_get_last_error(void);
+float gray_get_error(void);
+float gray_get_last_error(void);
 uint8_t gray_get_mask(void);
 uint8_t gray_get_valid_count(void);
 bool gray_is_lost(void);
