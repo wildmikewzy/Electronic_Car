@@ -129,6 +129,9 @@
 #include "motion.h"
 #include "uart_image.h"
 #include "gray.h"
+#include "Megnet.h"
+#include "key.h"
+#include "task.h"
 //=====================================================”√ªß≤„=======================================================
 #endif
 

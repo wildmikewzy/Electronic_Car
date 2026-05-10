@@ -23,6 +23,7 @@ typedef struct{
 
 //======================º¯ÊıÉùÃ÷======================
 void run_motion_task(float target_y, float target_d);
+void start_new_task(Point_t path_array[], int size);
 void path_following_logic(void);
 void gray_track_PID_init(void);
 float gray_track_PID_realize(void);

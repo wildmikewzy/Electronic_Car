@@ -36,11 +36,9 @@
 #include "zf_common_headfile.h"
 #pragma section all "cpu1_dsram"
 // 将本语句与#pragma section all restore语句之间的全局变量都放在CPU1的RAM中
+//================变量定义====================
 
-// 本例程是开源库空工程 可用作移植或者测试各类内外设
-// 本例程是开源库空工程 可用作移植或者测试各类内外设
-// 本例程是开源库空工程 可用作移植或者测试各类内外设
-
+taskType current_running_task;
 // **************************** 代码区域 ****************************
 void core1_main(void)
 {
@@ -48,19 +46,41 @@ void core1_main(void)
     interrupt_global_enable(0);             // 打开全局中断
     // 此处编写用户代码 例如外设初始化代码等
 
-
-
-
     // 此处编写用户代码 例如外设初始化代码等
     cpu_wait_event_ready();                 // 等待所有核心初始化完毕
-    while (TRUE)
-    {
-        // 此处编写需要循环执行的代码
-        grey_image_show();
+    int menu_result;
+    while (TRUE) {
+        menu_result = menu1();
+        if (menu_result == 1) {
+            // 进入二级菜单（实时显示）
+            menu2_RealTimeDisplay();
+        }
+        else if (menu_result > 1 && menu_result <= 4) {
+            // 只是在菜单里选好了科目，menu1 内部已经刷过 selected 了
+            // 这里可以做一些科目的预初始化
+            printf("Task %d ready\n", menu_result);
+        }
+        // 2. 判断是否是启动命令
+        else if (menu_result > 100) {
+            int task_id = menu_result - 100;
 
+            // 这一步关键：在进入运动前清屏并提示，不再重入 menu1
+            ips114_clear();
+            ips114_show_string(0, 0, "Running Task...");
 
-
-        // 此处编写需要循环执行的代码
+            // 运行switch-case 运动控制逻辑
+            switch(task_id){
+                case 2:
+                    current_running_task = BASE_TASK_1;
+                    break;
+                case 3:
+                    current_running_task = BASE_TASK_2;
+                    break;
+                case 4:
+                    current_running_task = BASE_TASK_3;
+                    break;
+            }
+        }
     }
 }
 #pragma section all restore

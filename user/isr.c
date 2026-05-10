@@ -46,6 +46,7 @@ extern float cmd_target_yaw;
 extern float cmd_target_dist;
 extern float start_dist; // 记录开始直行时的里程计数值
 extern PID_t line_track_pid;
+extern taskType current_running_task;
 // **************************** PIT中断函数 ****************************
 IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORITY)
 {
@@ -58,6 +59,9 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     calc_distance();
     //灰度传感器更新
     gray_update();
+    //更新物体位置
+    //update_position(yaw, distance);
+
     //===================速度闭环测试=================================
     static int time = 0;
     time++;
@@ -147,23 +151,35 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
 //          update_position(yaw, distance);
 //      }
     //================循迹测试==================================
-    if(time % 4 == 0) {
-        float turn_speed = 0;
-        float base_speed = 0.3f; // 循迹的基础速度
-
-        //调用 PID 函数得到转向修正量
-        turn_speed = gray_track_PID_realize();
-        printf("turn_speed: %f \r\n",turn_speed);
-        // 差速融合
-        float left_target  = base_speed + turn_speed;
-        float right_target = base_speed - turn_speed;
-
-        // 输入到你之前的速度环
-        small_driver_set_duty(speed_control_left_duty(left_target),
-                             speed_control_right_duty(right_target));
+//    if(time % 4 == 0) {
+//        float turn_speed = 0;
+//        float base_speed = 0.3f; // 循迹的基础速度
+//
+//        //调用 PID 函数得到转向修正量
+//        turn_speed = gray_track_PID_realize();
+//        // 差速融合
+//        float left_target  = base_speed + turn_speed;
+//        float right_target = base_speed - turn_speed;
+//
+//        // 输入到你之前的速度环
+//        small_driver_set_duty(speed_control_left_duty(left_target),
+//                             speed_control_right_duty(right_target));
+//        }
+    // ========================任务测试===============================
+    if(time % 4 == 0){
+        switch (current_running_task) {
+            case BASE_TASK_1:
+                task1_logic(); // 执行你设计的：巡线->转身->巡线逻辑
+                break;
+            case BASE_TASK_2:
+                // task2_logic();
+                break;
+            default:
+                // 停车或保持 IDLE
+                break;
         }
-    // 别忘了更新坐标，即使在循迹，坐标系统也要运行
-    update_position(yaw, distance);
+    }
+
 }
 
 

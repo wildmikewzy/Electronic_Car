@@ -7,8 +7,13 @@
 
 #ifndef CODE_COMMON_H_
 #define CODE_COMMON_H_
-
-//====================结构体声明=====================
+//==================枚举提定义=======================
+typedef enum{       //任务状态枚举体
+    BASE_TASK_1,
+    BASE_TASK_2,
+    BASE_TASK_3
+} taskType;
+//====================结构体定义=====================
 typedef struct {
     float kp, ki, kd;
     float target_val;       // 目标速度
@@ -49,5 +54,8 @@ typedef struct {
 #define GRAY_6  (P00_4)
 #define GRAY_7  (P00_7)
 #define GRAY_8  (P00_6)
-
+//电磁铁
+#define MEGNET_PIN (P20_10)
+//蜂鸣器
+#define BUZZER_PIN              (P33_10)
 #endif /* CODE_COMMON_H_ */

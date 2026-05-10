@@ -22,11 +22,11 @@ void motor_init(void){
 void speed_control_init(void){
 
     //设定left_speed和right_speed的pid参数
-    left_speed.kp = 100;
+    left_speed.kp = 50;
     left_speed.ki = 50;
     left_speed.kd = 80;
 
-    right_speed.kp = 100;
+    right_speed.kp = 50;
     right_speed.ki = 50;
     right_speed.kd = 80;
     //初始化结构体
