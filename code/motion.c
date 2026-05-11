@@ -89,7 +89,7 @@ void path_following_logic(void) {
 void gray_track_PID_init(void){
     line_track_pid.err = 0.0;
     line_track_pid.last_err = 0.0;
-    line_track_pid.kp = 0.008;
+    line_track_pid.kp = 0.006;
     line_track_pid.ki = 0.0;
     line_track_pid.kd = 0.10;
     line_track_pid.output = 0;

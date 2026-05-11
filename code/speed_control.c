@@ -23,11 +23,11 @@ void speed_control_init(void){
 
     //设定left_speed和right_speed的pid参数
     left_speed.kp = 40;
-    left_speed.ki = 60;
+    left_speed.ki = 65;
     left_speed.kd = 120;
 
     right_speed.kp = 40;
-    right_speed.ki = 60;
+    right_speed.ki = 65;
     right_speed.kd = 120;
     //初始化结构体
     left_speed.err = 0;

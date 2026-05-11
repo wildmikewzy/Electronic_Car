@@ -61,7 +61,7 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     //灰度传感器更新
     gray_update();
 
-    //===================速度闭环测试=================================
+//    //===================速度闭环测试=================================
     static int time = 0;
     time++;
 //    if(time % 4 == 0){
