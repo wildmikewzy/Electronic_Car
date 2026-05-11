@@ -38,7 +38,7 @@
 // 将本语句与#pragma section all restore语句之间的全局变量都放在CPU1的RAM中
 //================变量定义====================
 
-taskType current_running_task;
+taskType current_running_task = TURN_OFF;       //初始状态为关停状态，不执行任何任务，直到菜单选择任务之后
 // **************************** 代码区域 ****************************
 void core1_main(void)
 {

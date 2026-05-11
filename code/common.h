@@ -9,6 +9,7 @@
 #define CODE_COMMON_H_
 //==================枚举提定义=======================
 typedef enum{       //任务状态枚举体
+    TURN_OFF,    //不执行任务状态
     BASE_TASK_1,
     BASE_TASK_2,
     BASE_TASK_3

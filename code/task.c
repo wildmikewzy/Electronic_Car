@@ -9,6 +9,7 @@
 //===============外部声明====================
 extern void bibi(int8 n);           //从外部声明蜂鸣器bibi函数
 extern MotionState_t current_state;
+extern taskType current_running_task;
 //=========================================
 static uint8 sub_step = 0;      //子任务分解步骤
 /**
@@ -36,7 +37,7 @@ void task1_logic(void) {
             base_speed = 0;
             // 判定中间两个传感器是否碰到黑线
             // gray_get_mask() 获取 8 位掩码，0x01 对应二进制 00000001
-            if ((gray_get_mask() & 0x01) != 0 || (gray_get_mask() & 0x80) != 0) {
+            if (!gray_is_lost()) {
                 small_driver_set_duty(0, 0);
                 sub_step = 2;
             }
@@ -55,12 +56,11 @@ void task1_logic(void) {
 
         case 3: // 任务完成
             bibi(2); // 蜂鸣器响2声，声音提示
-            //sub_step = 3; // 重置子状态
+            sub_step = 0; // 重置子状态
+            current_running_task = TURN_OFF;
             base_speed = 0.0f;
             turn_speed = 0.0f;
             break;
-            return;
-
     }
     // 执行输出
     small_driver_set_duty(speed_control_left_duty(base_speed + turn_speed),
