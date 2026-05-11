@@ -89,39 +89,46 @@ void path_following_logic(void) {
 void gray_track_PID_init(void){
     line_track_pid.err = 0.0;
     line_track_pid.last_err = 0.0;
-    line_track_pid.kp = 0.005;
+    line_track_pid.kp = 0.008;
     line_track_pid.ki = 0.0;
-    line_track_pid.kd = 0.15;
+    line_track_pid.kd = 0.10;
     line_track_pid.output = 0;
     line_track_pid.output_f = 0;
     line_track_pid.prev_err = 0;
     line_track_pid.target_val = 0;
 }
 /**
- * @brief 灰度循迹 PID 核心计算
- * @param pid: 指向你的 line_pid 结构体
- * @param current_error: 从 gray_get_error() 获取的偏差 (-40 ~ 40)
- * @return float: 返回转向速度修正值 (m/s)
+ * @brief 融合角速度反馈的灰度循迹 PID
+ * @param gyro_z: 陀螺仪 Z 轴角速度 (度/秒)
+ * @return float: 返回转向速度修正值
  */
 float gray_track_PID_realize(void) {
-    // 1. 更新误差
+    // 1. 获取灰度偏差值
     line_track_pid.err = gray_get_error();
 
-    // 2. 比例项 (P)
+    // 2. 比例项 (P): 负责拉回黑线
     float p_out = line_track_pid.kp * line_track_pid.err;
 
-    // 3. 微分项 (D)
-    // 使用 (当前误差 - 上次误差) 来抑制震荡
-    float d_out = line_track_pid.kd * (line_track_pid.err - line_track_pid.last_err);
+    // 3. 传统微分项 (D1): 抑制位置偏差的变化趋势
+    float d_pos_out = line_track_pid.kd * (line_track_pid.err - line_track_pid.last_err);
 
-    // 5. 计算总输出 (float 类型)
-    line_track_pid.output_f = p_out + d_out;
+    // 4. 角速度阻尼项 (D2): 核心增强！
+    // 这里的 Kd_gyro 需要单独调试。注意符号：
+    // 如果左转时 gyro_z 为正，而向左偏时 err 为正，
+    // 则需要用减号来抑制这个旋转倾向。
+    float d_gyro_out = line_track_pid.kd * gyro_z*0.001;
 
-    // 6. 更新历史误差记录
-    line_track_pid.prev_err = line_track_pid.last_err; // 备份上上次误差 (对应你的结构体成员)
-    line_track_pid.last_err = line_track_pid.err;      // 更新上次误差
+    // 5. 总输出计算
+    // 减去 d_gyro_out 是为了形成反向阻尼，防止过冲
+    line_track_pid.output_f = p_out + d_pos_out - d_gyro_out;
 
-    // 7. 返回计算结果
+    // 6. 更新历史误差
+    line_track_pid.last_err = line_track_pid.err;
+
+    // 7. 返回结果与限幅 (建议在外部或此处统一限幅)
+    if (line_track_pid.output_f > MAX_TURN_SPEED) line_track_pid.output_f = MAX_TURN_SPEED;
+    if (line_track_pid.output_f < -MAX_TURN_SPEED) line_track_pid.output_f = -MAX_TURN_SPEED;
+
     return line_track_pid.output_f;
 }
 

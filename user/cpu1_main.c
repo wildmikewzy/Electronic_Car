@@ -64,10 +64,6 @@ void core1_main(void)
         else if (menu_result > 100) {
             int task_id = menu_result - 100;
 
-            // 这一步关键：在进入运动前清屏并提示，不再重入 menu1
-            ips114_clear();
-            ips114_show_string(0, 0, "Running Task...");
-
             // 运行switch-case 运动控制逻辑
             switch(task_id){
                 case 2:

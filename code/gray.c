@@ -23,7 +23,7 @@ static volatile bool gray_lost_flag = true;
 // GRAY_1 ×î×ó£¬GRAY_8 ×îÓÒ
 static const float gray_weight[GRAY_SENSOR_NUM] =
 {
-    -40.0f,-20.0f,-10.0f,-5.0f,5.0f,10.0f,20.0f,40.0f
+    40.0f,20.0f,10.0f,5.0f,-5.0f,-10.0f,-20.0f,-40.0f
 };
 
 void gray_init(void)

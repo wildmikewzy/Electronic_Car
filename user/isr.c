@@ -47,6 +47,7 @@ extern float cmd_target_dist;
 extern float start_dist; // 记录开始直行时的里程计数值
 extern PID_t line_track_pid;
 extern taskType current_running_task;
+int flag = 0;
 // **************************** PIT中断函数 ****************************
 IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORITY)
 {
@@ -59,26 +60,25 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     calc_distance();
     //灰度传感器更新
     gray_update();
-    //更新物体位置
-    //update_position(yaw, distance);
 
     //===================速度闭环测试=================================
     static int time = 0;
     time++;
 //    if(time % 4 == 0){
-//        int16 left_duty = speed_control_left_duty(0.3);
-//        int16 right_duty = speed_control_right_duty(-0.3);
+//        int16 left_duty = speed_control_left_duty(0.5);
+//        int16 right_duty = speed_control_right_duty(0.5);
 //        small_driver_set_duty(left_duty,right_duty);
 //        printf("left speed:%f, right speed:%f\r\n", left_motor_speed, right_motor_speed);
 //    }
-        //===========================航向闭环测试====================================
+    //===========================航向闭环测试====================================
 //    if(time % 4 == 0){
 //        uint8 status = !gpio_get_level(SWITCH1);
-//        float target_yaw = 30.0f;
+//        float target_yaw = 0.0f;
 //        float turn_speed = direction_PID(target_yaw,yaw,gyro_z);
-//        if(status){     //拨码开关开启，转弯90度
-//            int16 left_duty = speed_control_left_duty(-turn_speed);
-//            int16 right_duty = speed_control_right_duty(turn_speed);
+//        float base_speed = 0.0f;
+//        if(status){     //拨码开关开启
+//            int16 left_duty = speed_control_left_duty(base_speed-turn_speed);
+//            int16 right_duty = speed_control_right_duty(base_speed+turn_speed);
 //            small_driver_set_duty(left_duty,right_duty);
 //            printf("left duty:%d, right duty:%d\r\n", left_duty, right_duty);
 //        }
@@ -158,8 +158,8 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
 //        //调用 PID 函数得到转向修正量
 //        turn_speed = gray_track_PID_realize();
 //        // 差速融合
-//        float left_target  = base_speed + turn_speed;
-//        float right_target = base_speed - turn_speed;
+//        float left_target  = base_speed - turn_speed;
+//        float right_target = base_speed + turn_speed;
 //
 //        // 输入到你之前的速度环
 //        small_driver_set_duty(speed_control_left_duty(left_target),
@@ -168,14 +168,23 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     // ========================任务测试===============================
     if(time % 4 == 0){
         switch (current_running_task) {
+            case TURN_OFF:
+                if(flag == 0){
+                    reset_task_variables();     //重置函数
+                    flag = 1;
+                }
+                break;
             case BASE_TASK_1:
-                task1_logic(); // 执行你设计的：巡线->转身->巡线逻辑
+                flag = 0;
+                task1_logic();
                 break;
             case BASE_TASK_2:
-                // task2_logic();
+                flag = 0;
+                task2_logic();
                 break;
-            default:
-                // 停车或保持 IDLE
+            case BASE_TASK_3:
+                flag = 0;
+                task3_logic();
                 break;
         }
     }

@@ -106,7 +106,7 @@ int menu1(void) {
                 // 如果是实时显示，直接返回 ID 让 main 进入二级菜单
                 return 1;
             } else {
-                // 如果是基础科目，更新全局选择，并原地刷新屏幕显示 "selected"
+                // 如果是科目，更新全局选择，并原地刷新屏幕显示 "selected"
                 current_selected_task = selected_id;
                 update_needed = 1;
                 // 注意：这里不 return，让用户看到 selected 后可以继续按击掌启动

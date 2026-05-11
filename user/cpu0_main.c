@@ -83,8 +83,8 @@ void init_all(void){
     printf("Calibration done\r\n");
     printf("IMU Initializing Done");
     ips114_clear();
-    pit_ms_init(CCU60_CH0,PIT_t);       //CH0串口初始化
-    pit_ms_init(CCU60_CH1,10);          //CH1串口初始化（树莓派）
+    pit_ms_init(CCU60_CH0,PIT_t);       //CH0定时中断初始化
+    pit_ms_init(CCU60_CH1,10);          //CH1定时中断初始化（树莓派）
     speed_control_init();       //速度环控制初始化
     direction_PID_init();       //航向换参数初始化
     distance_PID_init();        //距离环参数初始化
