@@ -11,9 +11,27 @@ extern void bibi(int8 n);           //从外部声明蜂鸣器bibi函数
 extern taskType current_running_task;
 extern float distance;
 //=========================================
+/**
+ * @brief 停车程序
+ */
 void stop_car(void){
     small_driver_set_duty(0,0);
     system_delay_ms(300);
+}
+/**
+ * @brief 声光提示程序
+ */
+void Buzzer_and_LED(int n){
+    int8 count = 0;
+    while (count<n*2)
+    {
+        // 此处编写需要循环执行的代码
+        gpio_toggle_level(LED1);
+        gpio_toggle_level(BUZZER_PIN);
+        count ++;
+        system_delay_ms(500);
+        // 此处编写需要循环执行的代码
+    }
 }
 static uint8 sub_step = 0;      //子任务分解步骤
 /**
@@ -25,27 +43,24 @@ void task1_logic(void) {
     static float step_start_dist = 0; // 记录每一段的起点里程
     float current_step_dist = distance - step_start_dist;
     switch (sub_step) {
-        case 0: // 【阶段1】前进巡线：从 A 到 B
+        case 0: // 【A -> B】纯惯导走直线
             base_speed = 0.4f;
-            turn_speed = gray_track_PID_realize();
-            // 判定到达 B 点：所有传感器都看到黑线（横线）或者全部丢线（冲出了 B 点）
-            if (gray_is_lost()) {
-                stop_car();
-                system_delay_ms(200); // 停稳
+            turn_speed = direction_PID(0.0f, yaw, gyro_z);
+            if (current_step_dist >= 1.0f) { // 1.0m
                 sub_step = 1;
                 step_start_dist = distance;
             }
             break;
         case 1: // 【阶段2】强制左转中继点：Yaw = 90
-            base_speed = -0.08;
-            turn_speed = direction_PID(100.0f, yaw, gyro_z);
+            base_speed = -0.01;
+            turn_speed = direction_PID(90.0f, yaw, gyro_z);
             // 到达 90 度附近，切入下一阶段
-            if (fabsf(get_yaw_diff(100.0f, yaw)) < 3.0f) {
+            if (fabsf(get_yaw_diff(90.0f, yaw)) < 3.0f) {
                 sub_step = 2;
                 step_start_dist = distance;
             }
             break;
-        case 2: // 【阶段3】目标航向锁定：Yaw = 190
+        case 2: // 【阶段3】目标航向锁定：Yaw = 180
             base_speed = -0.02;
             turn_speed = direction_PID(180.0f, yaw, gyro_z);
             // 转到 180 度，此时车头已经基本对向 A 点且偏左一点
@@ -69,7 +84,7 @@ void task1_logic(void) {
             if (gray_is_lost() && current_step_dist>= 0.9) {
                 stop_car();
                 current_running_task = TURN_OFF;
-                bibi(2);
+                Buzzer_and_LED(3);
             }
             break;
     }
@@ -107,7 +122,7 @@ void task2_logic(void) {
         case 0: // 【A -> D】纯惯导走直线
             base_speed = 0.3f;
             turn_speed = direction_PID(0.0f, yaw, gyro_z);
-            if (current_step_dist >= 1.0f) { // 1.01m
+            if (current_step_dist >= 1.03f) { // 1.0m
                 sub_step = 1;
                 step_start_dist = distance;
             }
@@ -132,7 +147,7 @@ void task2_logic(void) {
         case 3: // 【D -> C】沿 DC 引导线巡线
             base_speed = 0.3f;
             turn_speed = gray_track_PID_realize();
-            if (gray_is_lost() || current_step_dist >= 0.9) { // 到达 C 点
+            if (gray_is_lost() || current_step_dist >= 1.0) { // 到达 C 点
                 stop_car();
                 step_start_dist = distance;
                 sub_step = 4;
@@ -149,7 +164,7 @@ void task2_logic(void) {
         case 5: // 【C -> B】纯惯导走直线
             base_speed = 0.3f;
             turn_speed = direction_PID(180.0f, yaw, gyro_z);
-            if (current_step_dist >= 0.75f) { // 累积里程判定
+            if (current_step_dist >= 0.90f) { // 累积里程判定
                 sub_step = 6;
                 step_start_dist = distance;
             }
@@ -176,7 +191,7 @@ void task2_logic(void) {
             if (gray_is_lost() && current_step_dist>=0.80) {
                 stop_car();
                 current_running_task = TURN_OFF;
-                bibi(2);
+                Buzzer_and_LED(3);
             }
             break;
     }
@@ -210,7 +225,7 @@ void task3_logic(void) {
 
     switch (sub_step) {
         case 0: // [A->B]
-            base_speed = 0.5f;
+            base_speed = 0.45f;
             turn_speed = direction_PID(0.0f, yaw, gyro_z);
             if (current_step_dist >= 1.0f) { // 累积里程判定
                 sub_step = 1;
@@ -268,7 +283,7 @@ void task3_logic(void) {
             }
             break;
         case 6: //走一小段经过d,a区域
-            base_speed = 0.4f;
+            base_speed = 0.3f;
             turn_speed = direction_PID(90.0f, yaw, gyro_z);
             if (current_step_dist >= 0.3) { // 累积里程判定
                 sub_step = 7;
@@ -308,7 +323,7 @@ void task3_logic(void) {
         case 10: //走一小段到达C点
             base_speed = 0.3f;
             turn_speed = direction_PID(290.0f, yaw, gyro_z);
-            if (current_step_dist >= 0.65) { // 累积里程判定
+            if (current_step_dist >= 0.75) { // 累积里程判定
                 sub_step = 11;
                 step_start_dist = distance;
             }
@@ -354,11 +369,11 @@ void task3_logic(void) {
             break;
         case 15: //走一小段到达A点，完赛！
             base_speed = 0.5f;
-            turn_speed = direction_PID(87.0f, yaw, gyro_z);
-            if (current_step_dist >= 0.8) { // 累积里程判定
+            turn_speed = direction_PID(90.0f, yaw, gyro_z);
+            if (current_step_dist >= 0.9) { // 累积里程判定
                 stop_car();
                 current_running_task = TURN_OFF;
-                bibi(2);
+                Buzzer_and_LED(3);
             }
             break;
         }

@@ -165,7 +165,7 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
 //        small_driver_set_duty(speed_control_left_duty(left_target),
 //                             speed_control_right_duty(right_target));
 //        }
-    // ========================任务测试===============================
+    // ========================任务执行程序===============================
     if(time % 4 == 0){
         switch (current_running_task) {
             case TURN_OFF:

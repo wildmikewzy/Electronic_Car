@@ -67,6 +67,7 @@ int core0_main(void)
 // **************************** 代码区域 ****************************
 void init_all(void){
     gpio_init(BUZZER_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);        //蜂鸣器初始化
+    gpio_init(LED1,GPO,GPIO_LOW,GPO_PUSH_PULL);
     ras_uart_init();        //串口初始化
     motor_init();       //无刷电机初始化
     menu_init();    //菜单初始化
@@ -99,17 +100,15 @@ void init_all(void){
 void bibi(int8 n){
    int8 count =0;
     while (count<n*4)
-        {
-            // 此处编写需要循环执行的代码
+    {
+        // 此处编写需要循环执行的代码
+        if(count < n*2)
+            gpio_toggle_level(BUZZER_PIN);
+        else if(count < n*4)
+            gpio_set_level(BUZZER_PIN, GPIO_LOW);
+        count ++;
+        system_delay_ms(100);
 
-            if(count < n*2)
-                gpio_toggle_level(BUZZER_PIN);
-            else if(count < n*4)
-                gpio_set_level(BUZZER_PIN, GPIO_LOW);
-
-            count ++;
-            system_delay_ms(100);
-
-            // 此处编写需要循环执行的代码
-        }
+        // 此处编写需要循环执行的代码
+    }
 }

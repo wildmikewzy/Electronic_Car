@@ -9,7 +9,7 @@
 PID_t dir_pid;      //航向环pid初始化
 void direction_PID_init(void){
     dir_pid.err = 0.0;
-    dir_pid.kp = 0.06;
+    dir_pid.kp = 0.04;
     dir_pid.ki = 0.0;
     dir_pid.kd = 0.040;
     dir_pid.last_err = 0.0;

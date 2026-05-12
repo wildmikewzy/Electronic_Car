@@ -59,4 +59,5 @@ typedef struct {
 #define MEGNET_PIN (P20_10)
 //·äÃùÆ÷
 #define BUZZER_PIN              (P33_10)
+#define LED1   (P21_7)
 #endif /* CODE_COMMON_H_ */
