@@ -35,7 +35,7 @@ typedef struct {
 #define SWITCH3                 (P33_12)
 //蜂鸣器
 #define BUZZER_PIN              (P33_10)
-//按键上下左右版本
+//五脚开关
 #define KEY_DOWN                (P20_7)
 #define KEY_UP                  (P20_6)
 #define KEY_LEFT                (P11_6)
@@ -56,7 +56,7 @@ typedef struct {
 #define GRAY_7  (P00_7)
 #define GRAY_8  (P00_6)
 //电磁铁
-#define MEGNET_PIN (P20_10)
+#define MEGNET_PIN (P20_9)
 //蜂鸣器
 #define BUZZER_PIN              (P33_10)
 #define LED1   (P21_7)

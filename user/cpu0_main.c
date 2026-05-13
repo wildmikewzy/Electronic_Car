@@ -37,29 +37,25 @@
 // 将本语句与#pragma section all restore语句之间的全局变量都放在CPU0的RAM中
 
 //=============宏定义/全局变量==================
-extern Point_t path1[];       //基础题（1） 路径点
-extern int path1_size;
 void init_all(void);
-void bibi(int8 n);
 int core0_main(void)
 {
     clock_init();                   // 获取时钟频率<务必保留>
     debug_init();                   // 初始化默认调试串口
     // 此处编写用户代码 例如外设初始化代码等
-    init_all();
+    init_all();     //初始化函数
     // 此处编写用户代码 例如外设初始化代码等
     cpu_wait_event_ready();         // 等待所有核心初始化完毕
-
     while (TRUE)
     {
         // 此处编写需要循环执行的代码
-        uint8 status = !gpio_get_level(SWITCH1);
+        Magnet_absorb();
+        int status = !gpio_get_level(SWITCH2);
         if(status){
-            Magnet_absorb();
+            servo_position_down();
         }
-        else{
-            Magnet_release();
-        }
+        else
+            servo_position_up();
         // 此处编写需要循环执行的代码
     }
 }
@@ -67,7 +63,7 @@ int core0_main(void)
 // **************************** 代码区域 ****************************
 void init_all(void){
     gpio_init(BUZZER_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);        //蜂鸣器初始化
-    gpio_init(LED1,GPO,GPIO_LOW,GPO_PUSH_PULL);
+    gpio_init(LED1,GPO,GPIO_LOW,GPO_PUSH_PULL);     //LED灯（红）初始化
     ras_uart_init();        //串口初始化
     motor_init();       //无刷电机初始化
     menu_init();    //菜单初始化
@@ -90,25 +86,5 @@ void init_all(void){
     direction_PID_init();       //航向换参数初始化
     distance_PID_init();        //距离环参数初始化
     gray_track_PID_init();      //灰度循迹参数初始化
-    start_new_task(path1,path1_size);
-
-}
-/**
- * @brief 蜂鸣器模块
- * @ param n 蜂鸣器发声次数
- */
-void bibi(int8 n){
-   int8 count =0;
-    while (count<n*4)
-    {
-        // 此处编写需要循环执行的代码
-        if(count < n*2)
-            gpio_toggle_level(BUZZER_PIN);
-        else if(count < n*4)
-            gpio_set_level(BUZZER_PIN, GPIO_LOW);
-        count ++;
-        system_delay_ms(100);
-
-        // 此处编写需要循环执行的代码
-    }
+    servo_init();       //舵机初始化
 }

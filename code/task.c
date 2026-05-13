@@ -7,7 +7,6 @@
 #include "zf_common_headfile.h"
 
 //===============外部声明====================
-extern void bibi(int8 n);           //从外部声明蜂鸣器bibi函数
 extern taskType current_running_task;
 extern float distance;
 //=========================================
