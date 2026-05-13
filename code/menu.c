@@ -15,8 +15,12 @@ extern Pose_t car_pose;
      {"Base1", 2}, // 1. 基础科目（1）
      {"Base2", 3}, // 2. 基础科目（2）
      {"Base3", 4}, // 3. 基础科目（3）
+     {"Advance1",5},     //4.发挥题目（1）
+     {"Advance2",6},     //5.发挥题目（2）
+     {"Advance3",7},     //6.发挥题目（3）
  };
-#define MAIN_MENU_NUM (sizeof(MainMenuEntries) / sizeof(MainMenuItem))
+#define MAIN_MENU_NUM (sizeof(MainMenuEntries) / sizeof(MainMenuItem))      //主菜单选项数量
+#define MAX_VISIBLE_ROWS 4  // 屏幕一页最多显示的行数
  // ==================== 动作函数定义 ====================
 /**
  * @brief 重置清零
@@ -43,29 +47,52 @@ void menu_init(void){
     ips114_init();
 }
 /**
- *@brief menu1刷新显示高亮函数：负责根据“当前选中的序号”来刷屏
- *@param current_flag 当前选中标签序号
+ *@brief 支持窗口滚动的渲染函数
+ *@param cursor 当前光标所在的绝对序号 (1 ~ MAIN_MENU_NUM)
  */
-// 修改渲染函数，增加 selected_id 参数
-void menu1_render(int current_flag, int selected_id) {
+void menu1_render(int cursor, int selected_id) {
     ips114_show_string(32*1+16, 0, "Electronic Car");
 
-    for (int i = 0; i < MAIN_MENU_NUM; i++) {
+    // 计算当前窗口的起始索引 (0-indexed)
+    // 逻辑：确保 cursor 始终在 [window_start + 1, window_start + MAX_VISIBLE_ROWS] 范围内
+    static int window_start = 0;
+
+    if (cursor - 1 < window_start) {
+        window_start = cursor - 1;
+    } else if (cursor - 1 >= window_start + MAX_VISIBLE_ROWS) {
+        window_start = cursor - MAX_VISIBLE_ROWS;
+    }
+
+    for (int i = 0; i < MAX_VISIBLE_ROWS; i++) {
+        int item_idx = window_start + i;
+        if (item_idx >= MAIN_MENU_NUM) break; // 超过总数则停止绘制
+
         // 1. 处理高亮（正在滑动的光标）
-        if (i == (current_flag - 1)) {
+        if (item_idx == (cursor - 1)) {
             ips114_set_color(RGB565_WHITE, RGB565_BLUE);
         } else {
             ips114_set_color(RGB565_WHITE, RGB565_BLACK);
         }
-        ips114_show_string(0, 40 + (i * 24), MainMenuEntries[i].name);
 
-        // 2. 处理 "selected" 标志（已经确认选择的任务）
-        // 如果当前项的 ID 等于已选中的 ID，且不是实时显示项
-        if (MainMenuEntries[i].id == selected_id && selected_id > 1) {
-            ips114_set_color(RGB565_GREEN, RGB565_BLACK); // 用绿色标出已选择
-            ips114_show_string(8*7, 40 + (i * 24), "selected");
+        // 绘制菜单名，y轴偏移基于 i (相对窗口的位置) 而非 item_idx
+        ips114_show_string(0, 40 + (i * 24), MainMenuEntries[item_idx].name);
+
+        // 2. 处理 "selected" 标志
+        if (MainMenuEntries[item_idx].id == selected_id && selected_id > 1) {
+            ips114_set_color(RGB565_GREEN, RGB565_BLACK);
+            ips114_show_string(8*12, 40 + (i * 24), "SEL"); // 缩短字样防止重叠
         }
     }
+
+//    // 绘制滚动条提示（可选，增加交互感）
+//    if (MAIN_MENU_NUM > MAX_VISIBLE_ROWS) {
+//        ips114_set_color(RGB565_GRAY, RGB565_BLACK);
+//        ips114_draw_line(235, 40, 235, 40 + (MAX_VISIBLE_ROWS * 24), RGB565_GRAY);
+//        // 简单滑块逻辑
+//        int slider_y = 40 + ( (cursor-1) * (MAX_VISIBLE_ROWS * 24) / MAIN_MENU_NUM );
+//        ips114_draw_line(234, slider_y, 236, slider_y + 10, RGB565_WHITE);
+//    }
+
     ips114_set_color(RGB565_WHITE, RGB565_BLACK);
 }
 // 定义一个全局变量记录当前选中的科目 ID
@@ -90,12 +117,12 @@ int menu1(void) {
         if(GetKey_UP()) {
             if(--cursor < 1) cursor = MAIN_MENU_NUM;
             update_needed = 1;
-            system_delay_ms(150);
+            system_delay_ms(200);
         }
         if(GetKey_DOWN()) {
             if(++cursor > MAIN_MENU_NUM) cursor = 1;
             update_needed = 1;
-            system_delay_ms(150);
+            system_delay_ms(200);
         }
 
         if(GetKey_ENTER()) {

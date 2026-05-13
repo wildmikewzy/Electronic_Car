@@ -47,6 +47,7 @@ extern float cmd_target_dist;
 extern float start_dist; // 记录开始直行时的里程计数值
 extern PID_t line_track_pid;
 extern taskType current_running_task;
+extern float target_pos;        //舵机需要到达的位置
 int flag = 0;
 // **************************** PIT中断函数 ****************************
 IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORITY)
@@ -60,6 +61,8 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     calc_distance();
     //灰度传感器更新
     gray_update();
+    //舵机根据给定角度实时调整位置
+    servo_smooth_move(target_pos);
 
 //    //===================速度闭环测试=================================
     static int time = 0;
@@ -186,6 +189,10 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
                 flag = 0;
                 task3_logic();
                 break;
+            case ADVANCE_TASK_1:
+                flag = 0;
+                task4_logic();
+                break;
         }
     }
 
@@ -194,21 +201,19 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
 
 IFX_INTERRUPT(cc60_pit_ch1_isr, CCU6_0_CH1_INT_VECTAB_NUM, CCU6_0_CH1_ISR_PRIORITY)
 {
-    interrupt_global_enable(0);                     // 开启中断嵌套
+    interrupt_global_enable(0);
     pit_clear_flag(CCU60_CH1);
+
     ras_uart_process();
 
+    ras_vision_result_t result;
 
-
-    // 如果有检测目标，读取第0个并打印
-    if (ras_get_detection_count() > 0)
+    if(ras_get_new_result(&result))
     {
-        ras_detection_t d;
-        if (ras_get_detection(0, &d))
-        {
-            // 输出格式可按需修改
-            printf("det:%u,%u,%u,%c\r\n", (unsigned)d.x, (unsigned)d.y, (unsigned)d.label_index, d.result_char);
-        }
+        printf("shape:%d,%u,%u\r\n",
+               (int)result.status,
+               (unsigned)result.x,
+               (unsigned)result.y);
     }
 }
 

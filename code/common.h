@@ -12,7 +12,10 @@ typedef enum{       //任务状态枚举体
     TURN_OFF,    //不执行任务状态
     BASE_TASK_1,
     BASE_TASK_2,
-    BASE_TASK_3
+    BASE_TASK_3,
+    ADVANCE_TASK_1,
+    ADVANCE_TASK_2,
+    ADVANCE_TASK_3,
 } taskType;
 //====================结构体定义=====================
 typedef struct {

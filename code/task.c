@@ -383,4 +383,106 @@ void task3_logic(void) {
     small_driver_set_duty(speed_control_left_duty(left_target),
                          speed_control_right_duty(right_target));
 }
+/**
+ * @brief 发挥题（1）逻辑：舵机抬起并前进
+ * @note 此函数应在定时中断中被持续调用
+ */
+extern float current_big_duty;
+/**
+ * @brief 发挥题（1）完整逻辑：吸球 -> 运球 0.2m -> 卸球
+ * @note 运行在 20ms 定时中断中
+ */
+void task4_logic(void) {
+    float base_speed = 0;
+    float turn_speed = 0;
+    static float step_start_dist = 0;
+    static int wait_counter = 0;
+
+    switch (sub_step) {
+        case 0: // 【初始化】升起舵机并开启电磁铁
+            gpio_set_level(MEGNET_PIN, GPIO_HIGH);
+            servo_set_target_up();
+            sub_step = 1;
+            break;
+
+        case 1: // 【等待】等待第一次升起完成
+            if (abs(SERVO_MOTOR_R_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                step_start_dist = distance;
+                sub_step = 2;
+            }
+            break;
+
+        case 2: // 【前进】匀速行驶 30cm (寻找球)
+            base_speed = 0.15f;
+            turn_speed = direction_PID(0.0f, yaw, gyro_z);
+            if (distance - step_start_dist >= 0.30f) {
+                stop_car();
+                sub_step = 3;
+            }
+            break;
+
+        case 3: // 【下降指令】准备吸球
+            servo_set_target_down();
+            sub_step = 4;
+            break;
+
+        case 4: // 【等待下降到位】
+            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                wait_counter = 0;
+                sub_step = 5;
+            }
+            break;
+
+        case 5: // 【计时等待】吸球时间 (400ms)
+            // 20ms一次，20次即400ms，确保吸力稳定
+            if (++wait_counter >= 20) {
+                servo_set_target_up();
+                sub_step = 6;
+            }
+            break;
+
+        case 6: // 【等待升起完成】带着球升到高处
+            if (abs(SERVO_MOTOR_R_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                step_start_dist = distance; // 重要：重新记录起点，准备第二次前进
+                sub_step = 7;
+            }
+            break;
+
+        case 7: // 【运球】再次前进 0.15m
+            base_speed = 0.15f; // 运球可以稍稳一点
+            turn_speed = direction_PID(0.0f, yaw, gyro_z);
+            if (distance - step_start_dist >= 0.15f) {
+                stop_car();
+                sub_step = 8;
+            }
+            break;
+
+        case 8: // 【放下】设置目标为低处，准备卸球
+            servo_set_target_down();
+            sub_step = 9;
+            break;
+
+        case 9: // 【等待到位】确认球已接触地面
+            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                wait_counter = 0;
+                sub_step = 10;
+            }
+            break;
+
+        case 10: // 【释放】等待稳定并断开电磁铁
+            if (++wait_counter >= 20) { // 等待400ms停稳
+                gpio_set_level(MEGNET_PIN, GPIO_LOW); // 断开电磁铁
+                wait_counter = 0;
+                current_running_task = TURN_OFF;
+            }
+            break;
+    }
+    // 电机输出控制
+    if (current_running_task != TURN_OFF) {
+        float left_target  = base_speed - turn_speed;
+        float right_target = base_speed + turn_speed;
+        small_driver_set_duty(speed_control_left_duty(left_target),
+                                 speed_control_right_duty(right_target));
+    }
+}
 

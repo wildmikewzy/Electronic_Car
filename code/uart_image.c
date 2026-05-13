@@ -5,41 +5,57 @@
  *      Author: cyz
  */
 
-#include "zf_common_headfile.h"
-#include "common.h"
+#include "uart_image.h"
 
-// ================变量定义=======================
+// ==================================================
+// 串口接收缓冲
+// ==================================================
 
+// UART 中断正在写入的缓冲
+static char ras_rx_build_buf[RAS_LINE_MAX];
+static uint16_t ras_rx_build_idx = 0;
 
-// 标签映射表 0..9, A..Z
-static const char ras_char_map[36] = {
-    '0','1','2','3','4','5','6','7','8','9',
-    'A','B','C','D','E','F','G','H','I','J',
-    'K','L','M','N','O','P','Q','R','S','T',
-    'U','V','W','X','Y','Z'
-};
+// 已经接收完成、等待解析的缓冲
+static char ras_rx_ready_buf[RAS_LINE_MAX];
+static volatile bool ras_rx_line_ready = false;
 
-// 接收行缓冲（中断写入）
-static char ras_rx_line_buf[RAS_LINE_MAX];
-static uint16_t ras_rx_line_idx = 0;
-volatile static bool ras_rx_line_ready = false; // 中断设置，主循环读取
+// ==================================================
+// 最新视觉结果
+// ==================================================
 
-// 解析后存储（主循环写入/读取）
-static ras_detection_t ras_detection_list[RAS_MAX_DETECTIONS];
-static volatile uint16_t ras_detection_count = 0;
+static ras_vision_result_t ras_latest_result;
+static volatile bool ras_result_valid = false;
+static volatile bool ras_new_result_flag = false;
 
+// ==================================================
 // 内部函数声明
-static void ras_parse_line(const char *line);
-static void ras_store_detection(const ras_detection_t *d);
+// ==================================================
 
-// 公共函数实现
+static void ras_parse_line(const char *line);
+static void ras_store_result(const ras_vision_result_t *result);
+
+static void ras_skip_space(const char **p);
+static bool ras_parse_i32(const char **p, int32_t *out);
+static bool ras_expect_comma(const char **p);
+
+static void ras_str_copy(char *dst, const char *src, uint16_t max_len);
+
+// ==================================================
+// 初始化
+// ==================================================
 
 void ras_uart_init(void)
 {
-    ras_rx_line_idx = 0;
+    ras_rx_build_idx = 0;
     ras_rx_line_ready = false;
-    ras_clear_detections();
-    memset(ras_rx_line_buf, 0, sizeof(ras_rx_line_buf));
+
+    for(uint16_t i = 0; i < RAS_LINE_MAX; i++)
+    {
+        ras_rx_build_buf[i] = '\0';
+        ras_rx_ready_buf[i] = '\0';
+    }
+
+    ras_clear_result();
 
     uart_init(RAS_UART, RAS_BAUDRATE, RAS_RX, RAS_TX);
     uart_rx_interrupt(RAS_UART, 1);
@@ -47,111 +63,334 @@ void ras_uart_init(void)
 
 void ras_get_img(void)
 {
-    // 可选：向树莓派请求数据，例如：
+    // 如果树莓派需要主动请求，可以打开这一句
     // uart_write_string(RAS_UART, "GET_IMG\n");
 }
 
-// 中断回调：只做字节读取与行组装，遇到换行设置就绪标志
+// ==================================================
+// UART RX 中断回调
+// 功能：只接收字节并拼接一行
+// 协议格式：status,x,y\n
+// 示例：-1,0,0
+// 示例：0,266,149
+// 示例：1,266,149
+// ==================================================
+
 void ras_uart_rx_callback(void)
 {
     uint8_t receive_data;
-    if(uart_query_byte(RAS_UART, &receive_data))
+
+    while(uart_query_byte(RAS_UART, &receive_data))
     {
         char ch = (char)receive_data;
 
-        if(ch == '\r') return;
+        if(ch == '\r')
+        {
+            continue;
+        }
 
         if(ch == '\n')
         {
-            if(ras_rx_line_idx > 0)
+            if(ras_rx_build_idx > 0)
             {
-                ras_rx_line_buf[ras_rx_line_idx] = '\0';
-                ras_rx_line_ready = true; // 标志一行就绪
+                ras_rx_build_buf[ras_rx_build_idx] = '\0';
+
+                // 保存完整一行
+                // 如果上一行还没处理，这里直接覆盖为最新数据
+                ras_str_copy(ras_rx_ready_buf, ras_rx_build_buf, RAS_LINE_MAX);
+
+                ras_rx_line_ready = true;
             }
-            ras_rx_line_idx = 0;
-            return;
+
+            ras_rx_build_idx = 0;
+            ras_rx_build_buf[0] = '\0';
+
+            continue;
         }
 
-        if(ras_rx_line_idx < (RAS_LINE_MAX - 1))
+        if(ras_rx_build_idx < RAS_LINE_MAX - 1)
         {
-            ras_rx_line_buf[ras_rx_line_idx++] = ch;
+            ras_rx_build_buf[ras_rx_build_idx++] = ch;
         }
         else
         {
-            // 溢出：重置并丢弃
-            ras_rx_line_idx = 0;
-            ras_rx_line_buf[0] = '\0';
+            // 行太长，丢弃当前行
+            ras_rx_build_idx = 0;
+            ras_rx_build_buf[0] = '\0';
         }
     }
 }
 
-// 主循环调用：若有就绪行则直接解析（无临界区保护）
+// ==================================================
+// 处理完整行
+// 建议放在主循环里调用
+// 你现在放在 PIT 中断里也能用，但不建议在中断里 printf 太频繁
+// ==================================================
+
 void ras_uart_process(void)
 {
-    if(!ras_rx_line_ready) return;
+    if(!ras_rx_line_ready)
+    {
+        return;
+    }
 
     char line_copy[RAS_LINE_MAX];
 
-    strcpy(line_copy, ras_rx_line_buf);
+    ras_str_copy(line_copy, ras_rx_ready_buf, RAS_LINE_MAX);
 
     ras_rx_line_ready = false;
-    ras_rx_line_idx = 0;
-    ras_rx_line_buf[0] = '\0';
 
     ras_parse_line(line_copy);
 }
 
-// 解析 CSV 行，格式： X,Y,LabelIndex,ResultChar
+// ==================================================
+// 解析一行数据
+// 协议：status,x,y
+// 识别到：0,266,149 或 1,266,149
+// 未识别：-1,-1,-1
+// ==================================================
+
 static void ras_parse_line(const char *line)
 {
-    if(line == NULL) return;
-    if(line[0] == '\0') return;
+    if(line == NULL || line[0] == '\0')
+    {
+        return;
+    }
 
-    unsigned int x=0, y=0, label_idx=0;
-    char result_char = 0;
+    const char *p = line;
+    int32_t status = 0;
+    int32_t x = 0;
+    int32_t y = 0;
 
-    int parsed = sscanf(line, " %u , %u , %u , %c", &x, &y, &label_idx, &result_char);
-    if(parsed != 4) return;
-    if(label_idx > 35) return;
+    // 1. 解析三个整型参数
+    if(!ras_parse_i32(&p, &status)) return;
+    if(!ras_expect_comma(&p))        return;
+    if(!ras_parse_i32(&p, &x))      return;
+    if(!ras_expect_comma(&p))        return;
+    if(!ras_parse_i32(&p, &y))      return;
 
-    ras_detection_t d;
-    d.x = (uint16_t)x;
-    d.y = (uint16_t)y;
-    d.label_index = (uint8_t)label_idx;
-    d.label_char = ras_char_map[label_idx];
-    d.result_char = result_char;
+    ras_skip_space(&p);
+    if(*p != '\0') return; // 后面不能有多余字符
 
-    // 可选校验：若映射字符与 result 不一致，可记录或忽略
-    ras_store_detection(&d);
+    // 2. 逻辑判断与校验
+    ras_vision_result_t result;
+
+    if(status == -1)
+    {
+        // 情况 A: 树莓派发送 -1,-1,-1 (未检测到)
+        result.status = -1;
+        result.x = 0; // 即使收到-1，MCU内部也记录为0，方便控制逻辑判断
+        result.y = 0;
+    }
+    else if(status == 0 || status == 1)
+    {
+        // 情况 B: 检测到目标，校验坐标合法性
+        if(x < 0 || y < 0 || x > 65535 || y > 65535)
+        {
+            return; // 坐标范围非法
+        }
+        result.status = (int8_t)status;
+        result.x = (uint16_t)x;
+        result.y = (uint16_t)y;
+    }
+    else
+    {
+        // 情况 C: 未知的 status 状态
+        return;
+    }
+
+    // 3. 存储解析后的结果
+    ras_store_result(&result);
 }
 
-// 存储解析结果
-static void ras_store_detection(const ras_detection_t *d)
-{
-    if(d == NULL) return;
+// ==================================================
+// 保存最新结果
+// ==================================================
 
-    ras_detection_list[0] = *d;
-    ras_detection_count = 1;
+static void ras_store_result(const ras_vision_result_t *result)
+{
+    if(result == NULL)
+    {
+        return;
+    }
+
+    ras_latest_result = *result;
+    ras_result_valid = true;
+    ras_new_result_flag = true;
 }
 
-void ras_clear_detections(void)
+// ==================================================
+// 对外访问接口
+// ==================================================
+
+void ras_clear_result(void)
 {
-    ras_detection_count = 0;
-    memset(ras_detection_list, 0, sizeof(ras_detection_list));
+    ras_latest_result.status = -1;
+    ras_latest_result.x = 0;
+    ras_latest_result.y = 0;
+
+    ras_result_valid = false;
+    ras_new_result_flag = false;
 }
 
-uint16_t ras_get_detection_count(void)
+bool ras_get_latest_result(ras_vision_result_t *out)
 {
-    return ras_detection_count;
-}
+    if(out == NULL)
+    {
+        return false;
+    }
 
-bool ras_get_detection(uint16_t idx, ras_detection_t *out)
-{
-    if(out == NULL) return false;
-    if(idx >= ras_detection_count) return false;
-    *out = ras_detection_list[idx];
+    if(!ras_result_valid)
+    {
+        return false;
+    }
+
+    *out = ras_latest_result;
     return true;
 }
 
+bool ras_get_new_result(ras_vision_result_t *out)
+{
+    if(out == NULL)
+    {
+        return false;
+    }
 
+    if(!ras_result_valid)
+    {
+        return false;
+    }
 
+    if(!ras_new_result_flag)
+    {
+        return false;
+    }
+
+    *out = ras_latest_result;
+
+    // 取走后清除新数据标志，避免一直重复打印旧数据
+    ras_new_result_flag = false;
+
+    return true;
+}
+
+bool ras_has_result(void)
+{
+    return ras_result_valid;
+}
+
+bool ras_has_new_result(void)
+{
+    return ras_new_result_flag;
+}
+
+// ==================================================
+// 工具函数：跳过空格
+// ==================================================
+
+static void ras_skip_space(const char **p)
+{
+    if(p == NULL)
+    {
+        return;
+    }
+
+    while(**p == ' ' || **p == '\t')
+    {
+        (*p)++;
+    }
+}
+
+// ==================================================
+// 工具函数：解析有符号整数
+// 支持 -1、0、1、266 这类数字
+// ==================================================
+
+static bool ras_parse_i32(const char **p, int32_t *out)
+{
+    int32_t value = 0;
+    int8_t sign = 1;
+    bool has_digit = false;
+
+    if(p == NULL || out == NULL)
+    {
+        return false;
+    }
+
+    ras_skip_space(p);
+
+    if(**p == '-')
+    {
+        sign = -1;
+        (*p)++;
+    }
+    else if(**p == '+')
+    {
+        (*p)++;
+    }
+
+    while(**p >= '0' && **p <= '9')
+    {
+        has_digit = true;
+        value = value * 10 + (int32_t)(**p - '0');
+        (*p)++;
+    }
+
+    if(!has_digit)
+    {
+        return false;
+    }
+
+    ras_skip_space(p);
+
+    *out = value * sign;
+    return true;
+}
+
+// ==================================================
+// 工具函数：匹配逗号
+// ==================================================
+
+static bool ras_expect_comma(const char **p)
+{
+    if(p == NULL)
+    {
+        return false;
+    }
+
+    ras_skip_space(p);
+
+    if(**p != ',')
+    {
+        return false;
+    }
+
+    (*p)++;
+
+    ras_skip_space(p);
+
+    return true;
+}
+
+// ==================================================
+// 工具函数：安全字符串复制
+// 不用 strcpy，避免缓冲区越界
+// ==================================================
+
+static void ras_str_copy(char *dst, const char *src, uint16_t max_len)
+{
+    uint16_t i = 0;
+
+    if(dst == NULL || src == NULL || max_len == 0)
+    {
+        return;
+    }
+
+    while(i < max_len - 1 && src[i] != '\0')
+    {
+        dst[i] = src[i];
+        i++;
+    }
+
+    dst[i] = '\0';
+}

@@ -75,6 +75,14 @@ void core1_main(void)
                 case 4:
                     current_running_task = BASE_TASK_3;
                     break;
+                case 5:
+                    current_running_task = ADVANCE_TASK_1;
+                    break;
+                case 6:
+                    current_running_task = ADVANCE_TASK_2;
+                    break;
+                case 7:
+                    current_running_task = ADVANCE_TASK_3;
             }
         }
     }

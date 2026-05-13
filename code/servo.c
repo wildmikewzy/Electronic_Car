@@ -3,8 +3,8 @@ float servo_motor_duty = 220.0;
 
 
 const float MAX_SPEED = 0.7;     // 最高速度限制
-static float current_big_duty = 0.0;    // 大臂当前位置
-static float current_small_duty = 0.0;  // 小臂当前位置
+float current_big_duty = 0.0;    // 大臂当前位置
+float current_small_duty = 0.0;  // 小臂当前位置
 float big_speed = 0.0;           // 大臂速度
 const float BIG_ACC = 0.03;     // 大臂运动加速度
 const float SMALL_FOLLOW_K = 0.15; // 关键：小臂跟随系数（0.1-0.2之间）
@@ -71,7 +71,7 @@ void servo_control_repeat(void){
     system_delay_ms(7);
 }
 /**
- *@brief 舵机到达最顶端位置
+ *@brief 舵机到达最顶端位置（阻塞式）
  */
 void servo_position_up(void){
     // 确保从 0 速度开始启动，防止起步冲击
@@ -88,7 +88,7 @@ void servo_position_up(void){
     system_delay_ms(300);
 }
 /**
- * @brief  舵机到达底端位置
+ * @brief  舵机到达底端位置（阻塞式）
  */
 void servo_position_down(void){
     // 确保从 0 速度开始启动，防止起步冲击
@@ -96,7 +96,6 @@ void servo_position_down(void){
     while (abs(SERVO_MOTOR_L_MAX - current_big_duty) > ARRIVE_THRESHOLD) {
         // 调用你实测最稳的平滑函数
         servo_smooth_move(SERVO_MOTOR_L_MAX);
-
         // 维持你实测最稳的频率
         system_delay_ms(7);
         // 安全保险：防止死循环（比如设置一个最大计数器）
@@ -104,12 +103,27 @@ void servo_position_down(void){
     // 到达后通过停顿来抵消惯性
     system_delay_ms(300);
 }
+
+/**
+ * @brief 仅设置舵机目标为高处（非阻塞）
+ */
+void servo_set_target_up(void) {
+    big_speed = 0.0;
+    target_pos = SERVO_MOTOR_R_MAX; // 仅仅改变目标值
+}
+
+/**
+ * @brief 仅设置舵机目标为低处（非阻塞）
+ */
+void servo_set_target_down(void) {
+    big_speed = 0.0;
+    target_pos = SERVO_MOTOR_L_MAX; // 仅仅改变目标值
+}
 /**
  * @brief 舵机的初始化,舵机初始姿态在低处
  */
 void servo_init(void){
     pwm_init(SERVO_MOTOR_PWM_1, SERVO_MOTOR_FREQ, 0);
     pwm_init(SERVO_MOTOR_PWM_2, SERVO_MOTOR_FREQ, 0);
-    servo_position_down();
-
+    servo_set_target_down();        //给舵机一个移动到低处的指令
 }

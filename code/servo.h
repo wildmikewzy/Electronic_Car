@@ -29,7 +29,7 @@
 #define SERVO_MOTOR_PWM_2             (ATOM1_CH2_P02_2)                           // 小臂对应的舵机所占用的PWM通道
 #define SERVO_MOTOR_FREQ            (50)                                       // 定义主板上舵机频率  请务必注意范围 50-300
 
-#define SERVO_MOTOR_L_MAX           (70 )                                       // 定义主板上舵机活动范围 角度     最低的角度  65
+#define SERVO_MOTOR_L_MAX           (65)                                       // 定义主板上舵机活动范围 角度     最低的角度  65
 #define SERVO_MOTOR_R_MAX           (220)                                       // 定义主板上舵机活动范围 角度     最高的角度  220
 
 #define ARRIVE_THRESHOLD (0.5f)   // 判断到位的容差
@@ -43,4 +43,6 @@ void servo_smooth_move(float);
 void servo_control_repeat(void);
 void servo_position_up(void);
 void servo_position_down(void);
+void servo_set_target_up(void);
+void servo_set_target_down(void);
 #endif /* CODE_SERVO_H_ */

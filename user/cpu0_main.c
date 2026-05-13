@@ -49,13 +49,7 @@ int core0_main(void)
     while (TRUE)
     {
         // 此处编写需要循环执行的代码
-        Magnet_absorb();
-        int status = !gpio_get_level(SWITCH2);
-        if(status){
-            servo_position_down();
-        }
-        else
-            servo_position_up();
+
         // 此处编写需要循环执行的代码
     }
 }
