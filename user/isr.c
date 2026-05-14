@@ -36,6 +36,7 @@
 #include "isr_config.h"
 #include "isr.h"
 #include "zf_common_headfile.h"
+#include "image.h"
 // 对于TC系列默认是不支持中断嵌套的，希望支持中断嵌套需要在中断内使用 interrupt_global_enable(0); 来开启中断嵌套
 // 简单点说实际上进入中断后TC系列的硬件自动调用了 interrupt_global_disable(); 来拒绝响应任何的中断，因此需要我们自己手动调用 interrupt_global_enable(0); 来开启中断的响应。
 extern float left_motor_speed;
@@ -210,10 +211,25 @@ IFX_INTERRUPT(cc60_pit_ch1_isr, CCU6_0_CH1_INT_VECTAB_NUM, CCU6_0_CH1_ISR_PRIORI
 
     if(ras_get_new_result(&result))
     {
-        printf("shape:%d,%u,%u\r\n",
+        float dbg_base = 0.0f;
+        float dbg_turn = 0.0f;
+        int16 dbg_err_x = 0;
+        int16 dbg_err_y = 0;
+        bool dbg_aligned = false;
+        bool dbg_valid = false;
+
+        image_get_debug(&dbg_base, &dbg_turn, &dbg_err_x, &dbg_err_y, &dbg_aligned, &dbg_valid);
+
+        printf("shape:%d,%u,%u,err_x:%d,err_y:%d,dbg_v:%d,base:%.3f,turn:%.3f,al:%d\r\n",
                (int)result.status,
                (unsigned)result.x,
-               (unsigned)result.y);
+               (unsigned)result.y,
+               (int)dbg_err_x,
+               (int)dbg_err_y,
+               (int)dbg_valid,
+               dbg_base,
+               dbg_turn,
+               (int)dbg_aligned);
     }
 }
 

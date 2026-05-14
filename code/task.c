@@ -5,6 +5,7 @@
  *      Author: Wild_Mike_wzy
  */
 #include "zf_common_headfile.h"
+#include "image.h"
 
 //===============外部声明====================
 extern taskType current_running_task;
@@ -33,6 +34,18 @@ void Buzzer_and_LED(int n){
     }
 }
 static uint8 sub_step = 0;      //子任务分解步骤
+
+// task4 速度与角速度限幅，防止视觉闭环放大导致突冲
+#define TASK4_MAX_BASE_SPEED   0.20f
+#define TASK4_MIN_BASE_SPEED  -0.10f
+#define TASK4_MAX_TURN_SPEED   0.80f
+
+static float task4_clamp(float value, float min_value, float max_value)
+{
+    if (value > max_value) return max_value;
+    if (value < min_value) return min_value;
+    return value;
+}
 /**
  * @brief 基础任务（1）执行代码
  */
@@ -104,6 +117,7 @@ void reset_task_variables(void) {
     distance = 0;              // 编码器里程清零（如果你的里程是累加的）
     // 清除 PID 结构体中的中间变量（防止上次残留的 error 或 last_err 导致瞬跳）
     direction_PID_init();      // 重新初始化航向环 PID
+    image_control_reset();     // 视觉闭环清零，避免任务切换造成突变
     // 确保电机处于停止状态
     small_driver_set_duty(0, 0);
     system_delay_ms(300);
@@ -397,79 +411,127 @@ void task4_logic(void) {
     float turn_speed = 0;
     static float step_start_dist = 0;
     static int wait_counter = 0;
+    static int8_t expected_status = IMAGE_STATUS_ANY;
+    ras_vision_result_t vision;
+    bool has_vision = ras_get_latest_result(&vision);
+    bool aligned = false;
+
+    // 开发阶段：跳过前置动作，直接进入视觉对准
+    if (sub_step < 3) {
+        sub_step = 3;
+    }
 
     switch (sub_step) {
-        case 0: // 【初始化】升起舵机并开启电磁铁
+        case 0: // 【已注释】前置动作调试时跳过
+/*
             gpio_set_level(MEGNET_PIN, GPIO_HIGH);
             servo_set_target_up();
+            image_control_reset();
+            // 当前协议只有 0 和 -1，可先放开类别限制，避免对准阶段被卡住
+            expected_status = IMAGE_STATUS_ANY;
             sub_step = 1;
+*/
             break;
 
-        case 1: // 【等待】等待第一次升起完成
+        case 1: // 【已注释】前置动作调试时跳过
+/*
             if (abs(SERVO_MOTOR_R_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
                 step_start_dist = distance;
                 sub_step = 2;
             }
+*/
             break;
 
-        case 2: // 【前进】匀速行驶 30cm (寻找球)
+        case 2: // 【已注释】前置动作调试时跳过
+/*
             base_speed = 0.15f;
             turn_speed = direction_PID(0.0f, yaw, gyro_z);
             if (distance - step_start_dist >= 0.30f) {
                 stop_car();
+                image_control_reset();
                 sub_step = 3;
             }
+*/
             break;
 
-        case 3: // 【下降指令】准备吸球
-            servo_set_target_down();
-            sub_step = 4;
-            break;
-
-        case 4: // 【等待下降到位】
-            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
-                wait_counter = 0;
-                sub_step = 5;
+        case 3: // 【视觉闭环】对准球中心，死区+稳定计数防抖
+            if (has_vision && image_control_update(&vision, expected_status, &base_speed, &turn_speed, &aligned)) {
+                if (aligned) {
+                    stop_car();
+                    sub_step = 4;
+                }
+            } else {
+                image_control_reset();
+                base_speed = 0.0f;
+                turn_speed = 0.0f;
             }
             break;
 
-        case 5: // 【计时等待】吸球时间 (400ms)
-            // 20ms一次，20次即400ms，确保吸力稳定
-            if (++wait_counter >= 20) {
-                servo_set_target_up();
+        case 4: // 【下降】准备吸球
+            servo_set_target_down();
+            sub_step = 5;
+            break;
+
+        case 5: // 【等待】舵机下降到位
+            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                wait_counter = 0;
                 sub_step = 6;
             }
             break;
 
-        case 6: // 【等待升起完成】带着球升到高处
-            if (abs(SERVO_MOTOR_R_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
-                step_start_dist = distance; // 重要：重新记录起点，准备第二次前进
+        case 6: // 【吸球】稳定等待 400ms，确保电磁铁吸附
+            // 20ms一次，20次即400ms，确保吸力稳定
+            if (++wait_counter >= 20) {
+                servo_set_target_up();
                 sub_step = 7;
             }
             break;
 
-        case 7: // 【运球】再次前进 0.15m
-            base_speed = 0.15f; // 运球可以稍稳一点
-            turn_speed = direction_PID(0.0f, yaw, gyro_z);
-            if (distance - step_start_dist >= 0.15f) {
-                stop_car();
+        case 7: // 【等待】带球抬起到高位
+            if (abs(SERVO_MOTOR_R_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                step_start_dist = distance; // 重要：重新记录起点，准备第二次前进
                 sub_step = 8;
             }
             break;
 
-        case 8: // 【放下】设置目标为低处，准备卸球
-            servo_set_target_down();
-            sub_step = 9;
-            break;
-
-        case 9: // 【等待到位】确认球已接触地面
-            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
-                wait_counter = 0;
-                sub_step = 10;
+        case 8: // 【运球】前进到投放区域附近
+            base_speed = 0.15f; // 运球可以稍稳一点
+            turn_speed = direction_PID(0.0f, yaw, gyro_z);
+            if (distance - step_start_dist >= 0.15f) {
+                stop_car();
+                image_control_reset();
+                // 当前协议仍返回 0，这里保持 ANY，后续有区分再改为 GOAL
+                expected_status = IMAGE_STATUS_ANY;
+                sub_step = 9;
             }
             break;
 
-        case 10: // 【释放】等待稳定并断开电磁铁
+        case 9: // 【视觉闭环】对准投放目标中心
+            if (has_vision && image_control_update(&vision, expected_status, &base_speed, &turn_speed, &aligned)) {
+                if (aligned) {
+                    stop_car();
+                    sub_step = 10;
+                }
+            } else {
+                image_control_reset();
+                base_speed = 0.0f;
+                turn_speed = 0.0f;
+            }
+            break;
+
+        case 10: // 【下降】准备放球
+            servo_set_target_down();
+            sub_step = 11;
+            break;
+
+        case 11: // 【等待】舵机下降到位
+            if (abs(SERVO_MOTOR_L_MAX - current_big_duty) < ARRIVE_THRESHOLD) {
+                wait_counter = 0;
+                sub_step = 12;
+            }
+            break;
+
+        case 12: // 【释放】稳定后断开电磁铁
             if (++wait_counter >= 20) { // 等待400ms停稳
                 gpio_set_level(MEGNET_PIN, GPIO_LOW); // 断开电磁铁
                 wait_counter = 0;
@@ -479,6 +541,9 @@ void task4_logic(void) {
     }
     // 电机输出控制
     if (current_running_task != TURN_OFF) {
+        // 统一限幅，避免视觉闭环或航向闭环导致速度过大
+        base_speed = task4_clamp(base_speed, TASK4_MIN_BASE_SPEED, TASK4_MAX_BASE_SPEED);
+        turn_speed = task4_clamp(turn_speed, -TASK4_MAX_TURN_SPEED, TASK4_MAX_TURN_SPEED);
         float left_target  = base_speed - turn_speed;
         float right_target = base_speed + turn_speed;
         small_driver_set_duty(speed_control_left_duty(left_target),

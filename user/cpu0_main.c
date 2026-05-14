@@ -33,6 +33,7 @@
 * 2022-11-03       pudding            first version
 ********************************************************************************************************************/
 #include "zf_common_headfile.h"
+#include "image.h"
 #pragma section all "cpu0_dsram"
 // 将本语句与#pragma section all restore语句之间的全局变量都放在CPU0的RAM中
 
@@ -80,5 +81,6 @@ void init_all(void){
     direction_PID_init();       //航向换参数初始化
     distance_PID_init();        //距离环参数初始化
     gray_track_PID_init();      //灰度循迹参数初始化
+    image_control_init();       // 视觉闭环参数初始化
     servo_init();       //舵机初始化
 }
