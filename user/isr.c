@@ -194,6 +194,9 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
                 flag = 0;
                 task4_logic();
                 break;
+            case ADVANCE_TASK_2:
+                flag = 0;
+                task5_logic();
         }
     }
 

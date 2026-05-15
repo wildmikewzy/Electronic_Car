@@ -17,8 +17,8 @@
 // 图像尺寸与目标中心
 #define IMAGE_FRAME_WIDTH      640
 #define IMAGE_FRAME_HEIGHT     480
-#define IMAGE_TARGET_CENTER_X  338
-#define IMAGE_TARGET_CENTER_Y  330
+#define IMAGE_TARGET_CENTER_X  330
+#define IMAGE_TARGET_CENTER_Y  320
 #define IMAGE_TARGET_CENTER_Y_BUCKET (250)
 
 // 视觉类别定义（与上位机/树莓派协议保持一致）
