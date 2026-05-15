@@ -22,9 +22,9 @@
 #define IMAGE_PID_Y_KD         0.2f
 
 // 输出限幅：保护速度环与底盘稳定性
-#define IMAGE_MAX_TURN_SPEED   0.05f
+#define IMAGE_MAX_TURN_SPEED   0.8f
 #define IMAGE_MAX_BASE_SPEED   0.2f
-#define IMAGE_MIN_BASE_SPEED  -0.15f
+#define IMAGE_MIN_BASE_SPEED  -0.1f
 
 // X轴用于转向闭环，Y轴用于前后闭环
 static PID_t image_pid_x;

@@ -16,7 +16,7 @@ extern float distance;
  */
 void stop_car(void){
     small_driver_set_duty(0,0);
-    system_delay_ms(300);
+    system_delay_ms(500);
 }
 /**
  * @brief 声光提示程序
@@ -434,7 +434,7 @@ void task4_logic(void) {
         case 2: // 【新增：高速惯导冲刺】快速接近球体盲区
             // 设定冲刺距离（根据实际场地调整，例如 0.15m - 0.2m）
             if (distance - step_start_dist < 0.15f) {
-                base_speed = 0.10f; // 较高的冲刺速度
+                base_speed = 0.15f; // 较高的冲刺速度
                 turn_speed = direction_PID(0.0f, yaw, gyro_z); // 依靠航向环走直线
             } else {
                 // 到达视觉预警区，减速准备捕获
@@ -459,7 +459,7 @@ void task4_logic(void) {
                 }
             } else {
                 // 丢失目标保护：低速匀速寻找
-                base_speed = 0.05f;
+                base_speed = 0.06f;
                 turn_speed = direction_PID(0.0f, yaw, gyro_z);
             }
             break;
@@ -514,7 +514,8 @@ void task4_logic(void) {
                     if (aligned) {
                         stop_car();      // 强力刹车
                         image_control_reset(); // 重置视觉状态机（包括锁定标志）
-                        sub_step = 10;          // 跳转至抓取等待
+                        gpio_set_level(MEGNET_PIN, GPIO_LOW);
+                        sub_step = 10;
                     }
                 }
             } else {
