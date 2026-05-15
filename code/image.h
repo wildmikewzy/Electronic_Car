@@ -18,7 +18,8 @@
 #define IMAGE_FRAME_WIDTH      640
 #define IMAGE_FRAME_HEIGHT     480
 #define IMAGE_TARGET_CENTER_X  338
-#define IMAGE_TARGET_CENTER_Y  309
+#define IMAGE_TARGET_CENTER_Y  330
+#define IMAGE_TARGET_CENTER_Y_BUCKET (250)
 
 // 视觉类别定义（与上位机/树莓派协议保持一致）
 #define IMAGE_STATUS_BALL      0
@@ -34,8 +35,8 @@ bool image_control_update(const ras_vision_result_t *result,
                           int8_t expected_status,
                           float *base_speed,
                           float *turn_speed,
-                          bool *aligned);
-
+                          bool *aligned,
+                          float image_target_y);
 // 获取最近一次视觉闭环的调试数据（不触发计算）
 bool image_get_debug(float *base_speed,
                      float *turn_speed,
@@ -45,3 +46,4 @@ bool image_get_debug(float *base_speed,
                      bool *valid);
 
 #endif /* CODE_IMAGE_H_ */
+

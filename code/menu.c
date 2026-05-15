@@ -8,6 +8,7 @@
 extern float speed;
 extern float distance;
 extern Pose_t car_pose;
+extern volatile uint8 clap_flag;        //拍手标志位
 //===========================================菜单选项登记表=================================================
  // ==================== 一级菜单总表 ====================
  const MainMenuItem MainMenuEntries[] = {
@@ -136,17 +137,15 @@ int menu1(void) {
                 // 如果是科目，更新全局选择，并原地刷新屏幕显示 "selected"
                 current_selected_task = selected_id;
                 update_needed = 1;
+                clap_flag = 0;
                 // 注意：这里不 return，让用户看到 selected 后可以继续按击掌启动
                 // 或者你可以根据需求在此处返回任务 ID
                 return selected_id;
             }
         }
         // 关键：在菜单界面也要检测“击掌”启动！
-//        if(clap_sensor_detected() && current_selected_task > 1) {
-//            return 100 + current_selected_task; // 特殊编码：代表带任务启动
-//        }
         static uint8 trigger_locked = 0;
-        if(!gpio_get_level(SWITCH1)) {
+        if(clap_flag == 1) {
             if(trigger_locked == 0 && current_selected_task > 1) {
                 trigger_locked = 1; // 上锁，本次触发有效
                 return 100 + current_selected_task;

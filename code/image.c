@@ -9,21 +9,21 @@
 #include "common.h"
 #include "uart_image.h"
 // 死区与稳定计数：避免轻微抖动导致反复调整
-#define IMAGE_DEADBAND_X       8
-#define IMAGE_DEADBAND_Y       8
+#define IMAGE_DEADBAND_X       20
+#define IMAGE_DEADBAND_Y       20
 #define IMAGE_ALIGN_COUNT      6
 
 // 视觉PID参数：X控制转向，Y控制前后速度
-#define IMAGE_PID_X_KP         0.008f
-#define IMAGE_PID_X_KI         0.0f
-#define IMAGE_PID_X_KD         0.002f
-#define IMAGE_PID_Y_KP         0.0015f
-#define IMAGE_PID_Y_KI         0.0f
-#define IMAGE_PID_Y_KD         0.0005f
+#define IMAGE_PID_X_KP         0.0000f
+#define IMAGE_PID_X_KI         0.000f
+#define IMAGE_PID_X_KD         0.0f
+#define IMAGE_PID_Y_KP         0.0005f
+#define IMAGE_PID_Y_KI         0.001f
+#define IMAGE_PID_Y_KD         0.2f
 
 // 输出限幅：保护速度环与底盘稳定性
-#define IMAGE_MAX_TURN_SPEED   0.6f
-#define IMAGE_MAX_BASE_SPEED   0.25f
+#define IMAGE_MAX_TURN_SPEED   0.05f
+#define IMAGE_MAX_BASE_SPEED   0.2f
 #define IMAGE_MIN_BASE_SPEED  -0.15f
 
 // X轴用于转向闭环，Y轴用于前后闭环
@@ -31,13 +31,15 @@ static PID_t image_pid_x;
 static PID_t image_pid_y;
 static uint16_t image_target_x = IMAGE_TARGET_CENTER_X;
 static uint16_t image_target_y = IMAGE_TARGET_CENTER_Y;
+
+//static uint16_t image_target_y_bucket = IMAGE_TARGET_CENTER_Y_BUCKET;
 static uint8_t image_stable_count = 0;
 
 // 最近一次计算结果，便于在中断中打印调试
 static float image_last_base_speed = 0.0f;
 static float image_last_turn_speed = 0.0f;
-static int16_t image_last_err_x = 0;
-static int16_t image_last_err_y = 0;
+int16_t image_last_err_x = 0;
+int16_t image_last_err_y = 0;
 static bool image_last_aligned = false;
 static bool image_last_valid = false;
 
@@ -70,35 +72,45 @@ static void image_pid_reset(PID_t *pid)
     pid->output = 0;
 }
 
-// 增量式PID计算（与速度环一致的思路，输出为float）
+// 修改后的计算函数：采用位置式思路 + 限制积分幅度
 static float image_pid_compute(PID_t *pid,
                                float measure_val,
                                float output_min,
                                float output_max,
-                               bool hold_zero)
+                               bool in_deadband)
 {
-    if(pid == NULL)
-    {
-        return 0.0f;
-    }
+    if(pid == NULL) return 0.0f;
 
-    // 进入死区时直接清零，抑制抖动
-    if(hold_zero)
+    // 1. 如果在死区内，直接清空状态并返回 0
+    if(in_deadband)
     {
-        image_pid_reset(pid);
+        pid->err = 0;
+        pid->last_err = 0;
+        pid->output_f = 0; // 位置式直接归零
         return 0.0f;
     }
 
     pid->err = pid->target_val - measure_val;
 
-    float increment = pid->kp * (pid->err - pid->last_err) +
-                      pid->ki * pid->err +
-                      pid->kd * (pid->err - 2 * pid->last_err + pid->prev_err);
+    // 2. 位置式 PID 计算
+    // P 项
+    float p_out = pid->kp * pid->err;
 
-    pid->output_f += increment;
+    // D 项 (视觉信号抖动大，建议 KD 设为 0 或极小)
+    float d_out = pid->kd * (pid->err - pid->last_err);
+
+    // 3. 计算基础输出
+    pid->output_f = p_out + d_out;
+
+    // 4. 【关键】静摩擦力补偿 (死区补偿)
+    // 假设电机 0.03f 才能转动，我们给它一个基础推力
+    const float MIN_DRIVE = 0.035f;
+    if (pid->output_f > 0) pid->output_f += MIN_DRIVE;
+    else if (pid->output_f < 0) pid->output_f -= MIN_DRIVE;
+
+    // 5. 限幅输出
     pid->output_f = image_clamp(pid->output_f, output_min, output_max);
 
-    pid->prev_err = pid->last_err;
     pid->last_err = pid->err;
 
     return pid->output_f;
@@ -133,98 +145,73 @@ void image_control_reset(void)
     image_last_aligned = false;
     image_last_valid = false;
 }
-
-// 视觉闭环更新：返回是否有效识别，并输出速度与对准标志
+/**
+ * @brief 视觉控制：仅纵向闭环（手动对准 X 轴版）
+ * 逻辑：假设 X 轴已经准了，视觉只负责把车开到球面前并停稳。
+ */
 bool image_control_update(const ras_vision_result_t *result,
                           int8_t expected_status,
                           float *base_speed,
                           float *turn_speed,
-                          bool *aligned)
+                          bool *aligned,
+                          float image_target_y)
 {
-    if(base_speed != NULL)
-    {
-        *base_speed = 0.0f;
+    // --- 1. 基础检查 ---
+    if(result == NULL || base_speed == NULL || turn_speed == NULL || aligned == NULL) {
+        image_control_reset();
+        return false;
     }
-    if(turn_speed != NULL)
-    {
-        *turn_speed = 0.0f;
-    }
-    if(aligned != NULL)
-    {
-        *aligned = false;
-    }
+    *base_speed = 0.0f;
+    *turn_speed = 0.0f; // 彻底放弃 X 轴控制
+    *aligned = false;
 
-    if(result == NULL || base_speed == NULL || turn_speed == NULL || aligned == NULL)
-    {
+    // 目标检查
+    if(result->status < 0 || result->x >= IMAGE_FRAME_WIDTH || result->y >= IMAGE_FRAME_HEIGHT) {
         image_control_reset();
         return false;
     }
 
-    // 未检测到目标
-    if(result->status < 0)
-    {
-        image_control_reset();
-        return false;
-    }
-
-    // 目标类别不匹配时拒绝进入闭环
-    if(expected_status != IMAGE_STATUS_ANY && result->status != expected_status)
-    {
-        image_control_reset();
-        return false;
-    }
-
-    // 坐标越界时直接丢弃
-    if(result->x >= IMAGE_FRAME_WIDTH || result->y >= IMAGE_FRAME_HEIGHT)
-    {
-        image_control_reset();
-        return false;
-    }
-
-    float err_x = (float)image_target_x - (float)result->x;
+    // --- 2. 偏差计算与非线性压缩 ---
     float err_y = (float)image_target_y - (float)result->y;
+    float err_x = (float)image_target_x - (float)result->x; // 仅用于判定是否“真的准了”
 
-    // 死区判断：小范围误差不驱动
-    bool in_x = (fabsf(err_x) <= IMAGE_DEADBAND_X);
-    bool in_y = (fabsf(err_y) <= IMAGE_DEADBAND_Y);
+    float processed_y = (float)result->y;
 
-    // 稳定计数：连续满足死区才判定对准
-    if(in_x && in_y)
-    {
-        if(image_stable_count < 255)
-        {
-            image_stable_count++;
-        }
+    // Y 轴大偏差压缩：当距离球较远时（err_y > 50），压缩输出，防止猛冲
+    if (fabsf(err_y) > 50.0f) {
+        processed_y = (float)image_target_y - (err_y * 0.5f);
     }
-    else
-    {
+
+    // --- 3. 闭环 Y 轴计算 ---
+    bool in_y_deadband = (fabsf(err_y) <= IMAGE_DEADBAND_Y);
+    //根据 err_y 动态调整速度限幅
+    float dynamic_max_speed;
+    if (err_y > 100) {
+        dynamic_max_speed = 0.20f; // 离得远，跑快点
+    } else {
+        dynamic_max_speed = 0.06f; // 靠近了，切回慢速模式确保精度
+    }
+
+    *base_speed = image_pid_compute(&image_pid_y, processed_y,
+                                    IMAGE_MIN_BASE_SPEED, dynamic_max_speed, in_y_deadband);
+
+
+    // --- 4. 判定是否到达抓取点 ---
+    // 条件：Y 进入死区（y位置准了）
+    if (in_y_deadband) {
+        if (image_stable_count < 255) image_stable_count++;
+    } else {
         image_stable_count = 0;
     }
 
-    image_pid_x.target_val = (float)image_target_x;
-    image_pid_y.target_val = (float)image_target_y;
-
-    // X轴控制转向，Y轴控制前后
-    *turn_speed = image_pid_compute(&image_pid_x,
-                                    (float)result->x,
-                                    -IMAGE_MAX_TURN_SPEED,
-                                    IMAGE_MAX_TURN_SPEED,
-                                    in_x);
-
-    *base_speed = image_pid_compute(&image_pid_y,
-                                    (float)result->y,
-                                    IMAGE_MIN_BASE_SPEED,
-                                    IMAGE_MAX_BASE_SPEED,
-                                    in_y);
-
-    if(image_stable_count >= IMAGE_ALIGN_COUNT)
-    {
+    // 计数达到阈值判定为对准（建议设大一点，确保车彻底停稳）
+    if (image_stable_count >= IMAGE_ALIGN_COUNT) {
         *aligned = true;
     }
 
-    // 保存调试数据，方便在中断里打印
+    // --- 5. 调试数据保存 ---
     image_last_base_speed = *base_speed;
-    image_last_turn_speed = *turn_speed;
+    image_last_turn_speed = 0.0f;
     image_last_err_x = (int16_t)err_x;
     image_last_err_y = (int16_t)err_y;
     image_last_aligned = *aligned;
@@ -232,7 +219,6 @@ bool image_control_update(const ras_vision_result_t *result,
 
     return true;
 }
-
 // 获取最近一次视觉闭环调试数据
 bool image_get_debug(float *base_speed,
                      float *turn_speed,

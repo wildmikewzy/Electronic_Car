@@ -39,6 +39,10 @@
 
 //=============宏定义/全局变量==================
 void init_all(void);
+
+#define Sound                   (ERU_CH3_REQ6_P02_0)
+//extern volatile uint8 clap_flag;
+
 int core0_main(void)
 {
     clock_init();                   // 获取时钟频率<务必保留>
@@ -59,7 +63,7 @@ int core0_main(void)
 void init_all(void){
     gpio_init(BUZZER_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);        //蜂鸣器初始化
     gpio_init(LED1,GPO,GPIO_LOW,GPO_PUSH_PULL);     //LED灯（红）初始化
-    ras_uart_init();        //串口初始化
+
     motor_init();       //无刷电机初始化
     menu_init();    //菜单初始化
     gray_init();        //灰度传感器初始化
@@ -75,6 +79,7 @@ void init_all(void){
     printf("Calibration done\r\n");
     printf("IMU Initializing Done");
     ips114_clear();
+    ras_uart_init();        //串口初始化
     pit_ms_init(CCU60_CH0,PIT_t);       //CH0定时中断初始化
     pit_ms_init(CCU60_CH1,10);          //CH1定时中断初始化（树莓派）
     speed_control_init();       //速度环控制初始化
@@ -83,4 +88,5 @@ void init_all(void){
     gray_track_PID_init();      //灰度循迹参数初始化
     image_control_init();       // 视觉闭环参数初始化
     servo_init();       //舵机初始化
+    exti_init(Sound, EXTI_TRIGGER_FALLING);
 }

@@ -23,13 +23,13 @@
 // 那么 100hz 下 90度的打角 即高电平时间1.5ms 计算套用为
 // PWM_DUTY_MAX/(1000/100)*(1+90/180) = PWM_DUTY_MAX/10*1.5
 //
-// ------------------ 舵机占空比计算方式 ------------------
+// ------------------ 舵机占空比计算方式 ----------s--------
 #define SERVO_MOTOR_DUTY(x)         ((float)PWM_DUTY_MAX/(1000.0/(float)SERVO_MOTOR_FREQ)*(1+(float)(x)/180.0))
-#define SERVO_MOTOR_PWM_1             (ATOM1_CH0_P02_0)                           // 大臂对应的舵机所占用的PWM通道
-#define SERVO_MOTOR_PWM_2             (ATOM1_CH2_P02_2)                           // 小臂对应的舵机所占用的PWM通道
+#define SERVO_MOTOR_PWM_1             (ATOM1_CH2_P02_2)                           // 大臂对应的舵机所占用的PWM通道
+#define SERVO_MOTOR_PWM_2             (ATOM1_CH4_P02_4)                           // 小臂对应的舵机所占用的PWM通道
 #define SERVO_MOTOR_FREQ            (50)                                       // 定义主板上舵机频率  请务必注意范围 50-300
 
-#define SERVO_MOTOR_L_MAX           (65)                                       // 定义主板上舵机活动范围 角度     最低的角度  65
+#define SERVO_MOTOR_L_MAX           (65)                                       // 定义主板上舵机活动范围 角度     最低的角度  60
 #define SERVO_MOTOR_R_MAX           (220)                                       // 定义主板上舵机活动范围 角度     最高的角度  220
 
 #define ARRIVE_THRESHOLD (0.5f)   // 判断到位的容差

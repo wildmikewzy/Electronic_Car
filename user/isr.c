@@ -197,6 +197,7 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
         }
     }
 
+
 }
 
 
@@ -313,23 +314,23 @@ IFX_INTERRUPT(exti_ch1_ch5_isr, EXTI_CH1_CH5_INT_VECTAB_NUM, EXTI_CH1_CH5_INT_PR
 //  }
 // }
 
+volatile uint8 clap_flag = 0;
+
 IFX_INTERRUPT(exti_ch3_ch7_isr, EXTI_CH3_CH7_INT_VECTAB_NUM, EXTI_CH3_CH7_INT_PRIO)
 {
     interrupt_global_enable(0);                     // 开启中断嵌套
     if(exti_flag_get(ERU_CH3_REQ6_P02_0))           // 通道3中断
     {
         exti_flag_clear(ERU_CH3_REQ6_P02_0);
-        camera_vsync_handler();                     // 摄像头触发采集统一回调函数
+      //  camera_vsync_handler();                     // 摄像头触发采集统一回调函数
+        clap_flag = 1;
     }
     if(exti_flag_get(ERU_CH7_REQ16_P15_1))          // 通道7中断
     {
         exti_flag_clear(ERU_CH7_REQ16_P15_1);
-
-
-
-
     }
 }
+
 // **************************** 外部中断函数 ****************************
 
 
