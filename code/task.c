@@ -93,7 +93,7 @@ void task1_logic(void) {
         case 4: // 【阶段4】切回巡线回到 A
             base_speed = 0.3f;
             turn_speed = gray_track_PID_realize();
-            if (gray_is_lost() && current_step_dist>= 0.9) {
+            if (gray_is_lost() && current_step_dist>= 0.8) {
                 stop_car();
                 current_running_task = TURN_OFF;
                 Buzzer_and_LED(3);
@@ -135,7 +135,7 @@ void task2_logic(void) {
         case 0: // 【A -> D】纯惯导走直线
             base_speed = 0.3f;
             turn_speed = direction_PID(0.0f, yaw, gyro_z);
-            if (current_step_dist >= 1.03f) { // 1.0m
+            if (current_step_dist >= 1.06f) { // 1.0m
                 sub_step = 1;
                 step_start_dist = distance;
             }
@@ -434,7 +434,7 @@ void task4_logic(void) {
         case 2: // 【新增：高速惯导冲刺】快速接近球体盲区
             // 设定冲刺距离（根据实际场地调整，例如 0.15m - 0.2m）
             if (distance - step_start_dist < 0.15f) {
-                base_speed = 0.15f; // 较高的冲刺速度
+                base_speed = 0.10f; // 较高的冲刺速度
                 turn_speed = direction_PID(0.0f, yaw, gyro_z); // 依靠航向环走直线
             } else {
                 // 到达视觉预警区，减速准备捕获
@@ -541,6 +541,8 @@ void task4_logic(void) {
 /**
  * @brief 发挥题(2)
  */
+extern PID_t left_speed;
+extern PID_t right_speed;
 void task5_logic(void) {
     float base_speed = 0;
     float turn_speed = 0;
@@ -553,9 +555,9 @@ void task5_logic(void) {
     bool aligned = false;
     switch (sub_step) {
         case 0: // 【A -> c区域】纯惯导走直线
-            base_speed = 0.3f;
+            base_speed = 0.20f;
             turn_speed = direction_PID(0.0f, yaw, gyro_z);
-            if (current_step_dist >= 0.75f) { //
+            if (current_step_dist >= 0.80f) { //
                 sub_step = 1;
                 stop_car();
                 step_start_dist = distance;
@@ -563,7 +565,7 @@ void task5_logic(void) {
             break;
 
         case 1: // 【转向】转向 c区域小球
-            base_speed = -0.02;
+            base_speed = -0.01;
             turn_speed = direction_PID(90.0f, yaw, gyro_z); // 转向 C 点
             if (fabsf(get_yaw_diff(90.0f, yaw)) < 2.0f) {
                 sub_step = 2;
@@ -622,8 +624,13 @@ void task5_logic(void) {
                 // 调用横向函数，此时直接输出视觉微调的转弯速度，不使用方向环
                 if (image_control_update_x(&vision, &turn_speed)) {
                     stop_car();            // X 也准了，彻底停稳
-                    image_control_reset(); // 清除计数
+                    //image_control_reset(); // 清除计数
                     sub_step = 6;          // 前往原来的 case 4 (下降舵机抓取)
+                }
+                if (turn_speed == 0.0f) {
+                    // 如果你的车由于速度环积分停不下来，这里强制清空速度环的累计积分
+                    left_speed.err = 0;
+                    right_speed.err = 0;
                 }
             } else {
                 // 原地微调时如果丢了视野，保持不动
@@ -655,6 +662,21 @@ void task5_logic(void) {
                 step_start_dist = distance; // 重新记录起点，准备后续任务
                 sub_step = 10;
             }
+            break;
+        case 10:     //转弯90度，面向桶
+            base_speed = -0.03;
+            turn_speed = direction_PID(180.0f, yaw, gyro_z);
+            if (fabsf(get_yaw_diff(180.0f, yaw)) < 2.0f && fabsf(gyro_z) < 5.0f) {
+                stop_car();
+                system_delay_ms(300); // 停稳
+                sub_step = 11;
+                step_start_dist = distance;
+            }
+            break;
+        case 11: // 关闭电磁铁，放下小球，完成发挥题目2！
+            gpio_set_level(MEGNET_PIN, GPIO_LOW);
+            Buzzer_and_LED(3);
+            current_running_task = TURN_OFF;
             break;
 
     }

@@ -10,13 +10,13 @@
 #include "uart_image.h"
 // 死区与稳定计数：避免轻微抖动导致反复调整
 #define IMAGE_DEADBAND_X       30
-#define IMAGE_DEADBAND_Y       20
+#define IMAGE_DEADBAND_Y       30
 #define IMAGE_ALIGN_COUNT      6
 
 // 视觉PID参数：X控制转向，Y控制前后速度
-#define IMAGE_PID_X_KP         0.0004f
+#define IMAGE_PID_X_KP         0.0003f
 #define IMAGE_PID_X_KI         0.000f
-#define IMAGE_PID_X_KD         0.5f
+#define IMAGE_PID_X_KD         3.0f
 #define IMAGE_PID_Y_KP         0.0005f
 #define IMAGE_PID_Y_KI         0.001f
 #define IMAGE_PID_Y_KD         0.2f
@@ -237,13 +237,13 @@ bool image_control_update_x(const ras_vision_result_t *result,
 
     // 【关键调优 1】死区不要给太小。由于你有 MIN_DRIVE 补偿，死区太小（比如2-3）必过冲
     // 建议设在 5.0f ~ 7.0f。先用一个大一点的死区让车能“停得住”
-    const float X_FINE_TUNE_DEADBAND = 20.0f;
+    const float X_FINE_TUNE_DEADBAND = 30.0f;
     bool in_x_deadband = (fabsf(err_x) <= X_FINE_TUNE_DEADBAND);
 
     // 【关键调优 2】限幅控制
     // 因为你的 PID 内部加了 0.035f 的 MIN_DRIVE，如果 output_max 设得太大（比如0.1），
-    // 稍微一偏输出就很大。这里限制最大输出为 0.045f（即给 PID 本身留出 0.01f 的线性调整量）
-    const float X_TUNE_MAX_SPEED = 0.035f;
+    // 稍微一偏输出就很大。这里限制最大输出为 0.040f（即给 PID 本身留出 0.01f 的线性调整量）
+    const float X_TUNE_MAX_SPEED = 0.040f;
 
     // 设置 PID 目标值（通常是屏幕中心线）
     image_pid_x.target_val = (float)image_target_x;
@@ -262,8 +262,8 @@ bool image_control_update_x(const ras_vision_result_t *result,
             image_stable_count = 0;
         }
 
-        // 确保在死区内连续稳定 6 帧（约 120ms）
-        if (image_stable_count >= 6) {
+        // 确保在死区内连续稳定 6 帧（约 60ms）
+        if (image_stable_count >= 3) {
             image_stable_count = 0;
             return true;
         }
