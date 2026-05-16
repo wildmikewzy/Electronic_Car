@@ -585,7 +585,7 @@ void task5_logic(void) {
         case 4: // 【高速惯导冲刺】快速接近球体盲区
             // 设定冲刺距离（根据实际场地调整）
             if (current_step_dist < 0.40f) {
-                base_speed = 0.20f; // 较高的冲刺速度
+                base_speed = 0.15f; // 较高的冲刺速度
                 turn_speed = direction_PID(90.0f, yaw, gyro_z); // 依靠航向环走直线
             } else {
                 // 到达视觉预警区，减速准备捕获
@@ -600,19 +600,35 @@ void task5_logic(void) {
             break;
         case 5: // 【视觉 Y 轴单闭环逼近小球】
             if (has_vision) {
-                if (image_control_update(&vision, expected_status, &base_speed, &turn_speed, &aligned,IMAGE_TARGET_CENTER_Y)) {
+                if (image_control_update(&vision, expected_status, &base_speed, &turn_speed, &aligned,IMAGE_TARGET_CENTER_Y_2)) {
                     // 视觉阶段依然强制使用方向环，确保绝对直线
                     turn_speed = direction_PID(90.0f, yaw, gyro_z);
                     if (aligned) {
                         stop_car();      // 强力刹车
                         image_control_reset(); // 重置视觉状态机（包括锁定标志）
-                        sub_step = 6;
+                        sub_step = 35;
                     }
                 }
             } else {
                 // 丢失目标保护：低速匀速寻找
                 base_speed = 0.05f;
                 turn_speed = direction_PID(0.0f, yaw, gyro_z);
+            }
+            break;
+        case 35: // 【新阶段：视觉 X 轴原地微调】
+            if (has_vision) {
+                base_speed = -0.01f; // 强制纵向绝对不动
+
+                // 调用横向函数，此时直接输出视觉微调的转弯速度，不使用方向环
+                if (image_control_update_x(&vision, &turn_speed)) {
+                    stop_car();            // X 也准了，彻底停稳
+                    image_control_reset(); // 清除计数
+                    sub_step = 6;          // 前往原来的 case 4 (下降舵机抓取)
+                }
+            } else {
+                // 原地微调时如果丢了视野，保持不动
+                base_speed = 0.0f;
+                turn_speed = 0.0f;
             }
             break;
         case 6: // 【下降】确保指令下发（若 Case 3 未提前触发则此处触发）
