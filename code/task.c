@@ -336,7 +336,7 @@ void task3_logic(void) {
         case 10: //走一小段到达C点
             base_speed = 0.3f;
             turn_speed = direction_PID(290.0f, yaw, gyro_z);
-            if (current_step_dist >= 0.75) { // 累积里程判定
+            if (current_step_dist >= 0.70) { // 累积里程判定
                 sub_step = 11;
                 step_start_dist = distance;
             }
@@ -370,8 +370,8 @@ void task3_logic(void) {
             }
             break;
         case 14:     //再转弯90度
-            base_speed = -0.03;
-            target_yaw = 85.0f;
+            base_speed = -0.01;
+            target_yaw = 90.0f;
             turn_speed = direction_PID(target_yaw, yaw, gyro_z);
             if (fabsf(get_yaw_diff(target_yaw, yaw)) < 2.0f && fabsf(gyro_z) < 5.0f) {
                 stop_car();
@@ -433,7 +433,7 @@ void task4_logic(void) {
 
         case 2: // 【新增：高速惯导冲刺】快速接近球体盲区
             // 设定冲刺距离（根据实际场地调整，例如 0.15m - 0.2m）
-            if (distance - step_start_dist < 0.15f) {
+            if (distance - step_start_dist < 0.20f) {
                 base_speed = 0.10f; // 较高的冲刺速度
                 turn_speed = direction_PID(0.0f, yaw, gyro_z); // 依靠航向环走直线
             } else {
@@ -489,9 +489,9 @@ void task4_logic(void) {
                 sub_step = 8;
             }
             break;
-        case 8: // 【新增：高速惯导冲刺】快速接近球体盲区
+        case 8: // 【新增：高速惯导冲刺】快速接近桶体盲区
             // 设定冲刺距离（根据实际场地调整）
-            if (distance - step_start_dist < 0.2f) {
+            if (distance - step_start_dist < 0.22f) {
                 base_speed = 0.10f; // 较高的冲刺速度
                 turn_speed = direction_PID(0.0f, yaw, gyro_z); // 依靠航向环走直线
             } else {

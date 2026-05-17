@@ -138,6 +138,10 @@ int menu1(void) {
                 current_selected_task = selected_id;
                 update_needed = 1;
                 clap_flag = 0;
+                if(selected_id == 5 || selected_id == 6){
+                    gpio_set_level(MEGNET_PIN, GPIO_HIGH);
+                    servo_set_target_up();
+                }
                 // 注意：这里不 return，让用户看到 selected 后可以继续按击掌启动
                 // 或者你可以根据需求在此处返回任务 ID
                 return selected_id;

@@ -16,7 +16,7 @@
 // 视觉PID参数：X控制转向，Y控制前后速度
 #define IMAGE_PID_X_KP         0.0003f
 #define IMAGE_PID_X_KI         0.000f
-#define IMAGE_PID_X_KD         3.0f
+#define IMAGE_PID_X_KD         10.0f
 #define IMAGE_PID_Y_KP         0.0005f
 #define IMAGE_PID_Y_KI         0.001f
 #define IMAGE_PID_Y_KD         0.2f
