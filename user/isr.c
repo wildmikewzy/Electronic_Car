@@ -64,111 +64,8 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     gray_update();
     //舵机根据给定角度实时调整位置
     servo_smooth_move(target_pos);
-
-//    //===================速度闭环测试=================================
     static int time = 0;
     time++;
-//    if(time % 4 == 0){
-//        int16 left_duty = speed_control_left_duty(0.5);
-//        int16 right_duty = speed_control_right_duty(0.5);
-//        small_driver_set_duty(left_duty,right_duty);
-//        printf("left speed:%f, right speed:%f\r\n", left_motor_speed, right_motor_speed);
-//    }
-    //===========================航向闭环测试====================================
-//    if(time % 4 == 0){
-//        uint8 status = !gpio_get_level(SWITCH1);
-//        float target_yaw = 0.0f;
-//        float turn_speed = direction_PID(target_yaw,yaw,gyro_z);
-//        float base_speed = 0.0f;
-//        if(status){     //拨码开关开启
-//            int16 left_duty = speed_control_left_duty(base_speed-turn_speed);
-//            int16 right_duty = speed_control_right_duty(base_speed+turn_speed);
-//            small_driver_set_duty(left_duty,right_duty);
-//            printf("left duty:%d, right duty:%d\r\n", left_duty, right_duty);
-//        }
-//    }
-    //printf("T:%f, C:%f, E:%f, O:%f \r\n", target_yaw, yaw, dir.err, turn_speed);
-    //==============航向环、速度环、距离环三环串级测试===================
-//    if(time % 4 == 0){
-//        update_position(yaw,distance);      //更新位置
-//        // 2. 距离环计算 (得出基础速度)
-//        // 假设我们要让小车精准行驶 3.0 米
-//        float base_speed = distance_control(2.0f, distance);
-//        printf("base_speed %f \r\n:",base_speed);
-//        // 3. 航向环计算 (得出转向差速)
-//        // 假设我们要让小车始终锁死在 90 度方向
-//        float turn_speed = direction_PID(90.0f, yaw, gyro_z);
-//
-//        // 4. 融合输出
-//        // 左轮目标 = 基础前进速度 - 转向修正
-//        float left_target  = base_speed - turn_speed;
-//        // 右轮目标 = 基础前进速度 + 转向修正
-//        float right_target = base_speed + turn_speed;
-//
-//        // 5. 送入速度环执行
-//        int16 left_duty  = speed_control_left_duty(left_target);
-//        int16 right_duty = speed_control_right_duty(right_target);
-//
-//        small_driver_set_duty(left_duty, right_duty);
-//    }
-      //=========================坐标点闭环=============================
-//      if(time % 4 == 0){        //降频，相当于20ms终端
-//          float turn_speed = 0;     //转弯速度
-//          float base_speed = 0;     //基础直线速度
-//
-//          switch (current_state) {
-//              case IDLE:
-//                  path_following_logic();
-//                  break;
-//
-//              case ROTATING:
-//                  // 只有航向环在工作
-//                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
-//                  base_speed = 0;
-//
-//                  // 判定旋转是否完成：误差小于 2 度 且 角速度足够小
-//                  if (fabsf(cmd_target_yaw - yaw) < 2.0f && fabsf(gyro_z) < 5.0f) {
-//                      start_dist = distance; // 记录当前里程计作为起点
-//                      current_state = TRANSLATING;
-//                  }
-//                  break;
-//
-//              case TRANSLATING:
-//                  // 航向环锁死角度，距离环开始输出速度
-//                  turn_speed = direction_PID(cmd_target_yaw, yaw, gyro_z);
-//
-//                  // 相对距离闭环：当前行驶距离 = 总里程 - 记录的起点
-//                  base_speed = distance_control(cmd_target_dist, distance - start_dist);
-//
-//                  // 判定直行是否完成：距离误差小于 3cm
-//                  if (fabsf(cmd_target_dist - (distance - start_dist)) < 0.03f) {
-//                      current_state = IDLE;
-//                  }
-//                  break;
-//          }
-//
-//          // B. 融合并输出
-//          small_driver_set_duty(speed_control_left_duty(base_speed - turn_speed),
-//                               speed_control_right_duty(base_speed + turn_speed));
-//
-//          // C. 实时更新坐标（航位推算）
-//          update_position(yaw, distance);
-//      }
-    //================循迹测试==================================
-//    if(time % 4 == 0) {
-//        float turn_speed = 0;
-//        float base_speed = 0.3f; // 循迹的基础速度
-//
-//        //调用 PID 函数得到转向修正量
-//        turn_speed = gray_track_PID_realize();
-//        // 差速融合
-//        float left_target  = base_speed - turn_speed;
-//        float right_target = base_speed + turn_speed;
-//
-//        // 输入到你之前的速度环
-//        small_driver_set_duty(speed_control_left_duty(left_target),
-//                             speed_control_right_duty(right_target));
-//        }
     // ========================任务执行程序===============================
     if(time % 4 == 0){
         switch (current_running_task) {
@@ -199,8 +96,6 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
                 task5_logic();
         }
     }
-
-
 }
 
 
