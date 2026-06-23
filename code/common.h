@@ -28,7 +28,7 @@ typedef struct {
     float output_f;     //输出占空比 float类型
 } PID_t;
 //=================宏定义=======================
-#define PIT_t (5)               //终端周期 5ms
+#define PIT_t (5)               //中断周期 5ms
 #define k_speed (0.003435)      //编码器-速度转换系数
 #define RAD_TO_DEG          (57.2957795131f)
 #define DEG_TO_RAD          (0.01745329251f)
